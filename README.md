@@ -1,4 +1,4 @@
-# 🔩 MetalRFQ: AI-Powered Metal Procurement Generator
+# 🔩 RFQ-Builder: AI-Powered Metal Procurement Generator
 
 A production-ready AI assistant for the Indian metals industry. **MetalRFQ** uses natural language processing to extract structured procurement data from chat conversations and generates industrial-grade Request for Quotation (RFQ) documents in real-time.
 
