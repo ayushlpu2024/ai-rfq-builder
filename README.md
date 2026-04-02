@@ -27,7 +27,7 @@ A production-ready AI assistant for the Indian metals industry. **MetalRFQ** use
 | **Framework**    | [Next.js 15](https://nextjs.org/) (App Router) |
 | **Styling**      | [Tailwind CSS](https://tailwindcss.com/) |
 | **AI SDK**       | [Vercel AI SDK](https://sdk.vercel.ai/) |
-| **Model**        | [Amazon Bedrock](https://aws.amazon.com/bedrock/) (Anthropic Claude 3.5 Sonnet) |
+| **Model**        | [Amazon Bedrock](https://aws.amazon.com/bedrock/) (Anthropic Claude Sonnet) |
 | **State Management** | [Zustand](https://zustand-demo.pmnd.rs/) with Persistence |
 | **Icons**        | [Lucide React](https://lucide.dev/) |
 | **PDF Generation**| `html2canvas-pro` + `jspdf` (Professional Bill Template) |
