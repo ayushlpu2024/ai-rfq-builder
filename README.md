@@ -1,18 +1,22 @@
-# 🚀 AI Resume Builder
+# 🔩 MetalRFQ: AI-Powered Metal Procurement Generator
 
-A modern, production-ready AI resume builder that feels like chatting with a professional career coach. It collects your details conversationally and generates a structured, ATS-friendly resume in real time.
+A production-ready AI assistant for the Indian metals industry. **MetalRFQ** uses natural language processing to extract structured procurement data from chat conversations and generates industrial-grade Request for Quotation (RFQ) documents in real-time.
 
 ---
 
 ## ✨ Features
 
-- **💬 Conversational UI**: Build your resume through a natural chat interface (powered by `gpt-4o`).
-- **🧠 Dual-Stream AI**: Parallel processing for data extraction and conversational guidance.
-- **⚡ Real-Time Preview**: Watch your resume update instantly as you provide information.
-- **💾 Auto-Persistence**: Progress is automatically saved to `localStorage`.
-- **🎨 Professional Templates**: Choose between "Modern" and "Classic" designs.
-- **📥 One-Click Export**: High-quality PDF generation via browser-optimized print styles.
-- **🔄 Smart Refinement**: Ask the AI to "make my summary more professional" or "improve my bullet points" after the initial draft.
+- **💬 Conversational RFQ Building**: Describe your material needs (e.g., "10 MT of SS 304 sheets, 2mm thick") and watch the form populate automatically.
+- **🧠 Dual-Stream AI Architecture**:
+    - **Extraction Mode**: Background processing that identifies grades, categories, dimensions, and quantities from text.
+    - **Chat Mode**: A helpful assistant that guides you through the procurement steps and Indian industry standards.
+- **📄 Professional "Bill-Style" Export**:
+    - Generates a high-quality PDF with a professional invoice/bill layout.
+    - Structured tables for line items, delivery terms, and commercial conditions.
+    - Standardized formatting for easy sharing with suppliers.
+- **📊 Indian Metal Market Optimization**: Pre-configured with Indian metal categories (MS, SS, Aluminium, Brass), standard grades (IS 2062, ASTM A240), and local commercial terms (GST, Incoterms, Mill TC).
+- **🌓 Modern UI/UX**: Sleek split-panel interface with full Dark Mode support, real-time highlights for AI-updated fields, and mobile-responsive tabs.
+- **💰 Usage Tracking**: Real-time token usage and cost monitoring for transparent AI operations.
 
 ---
 
@@ -23,46 +27,40 @@ A modern, production-ready AI resume builder that feels like chatting with a pro
 | **Framework**    | [Next.js 15](https://nextjs.org/) (App Router) |
 | **Styling**      | [Tailwind CSS](https://tailwindcss.com/) |
 | **AI SDK**       | [Vercel AI SDK](https://sdk.vercel.ai/) |
-| **Model**        | OpenAI `gpt-4o` |
+| **Model**        | [Amazon Bedrock](https://aws.amazon.com/bedrock/) (Anthropic Claude 3.5 Sonnet) |
+| **State Management** | [Zustand](https://zustand-demo.pmnd.rs/) with Persistence |
 | **Icons**        | [Lucide React](https://lucide.dev/) |
-| **State**        | Custom React Hooks + `localStorage` |
-| **PDF Export**   | CSS Print Media + `window.print()` |
+| **PDF Generation**| `html2canvas-pro` + `jspdf` (Professional Bill Template) |
 
 ---
 
-## 🧠 The Chat System: "The Brain"
+## 🧠 The "Brain": Dual-Stream Processing
 
-The core magic of the application lies in its **Dual-Stream Processing** model. Every user message triggers two distinct AI processes to ensure both a smooth conversation and accurate data updates.
+MetalRFQ uses a specialized parallel processing model to ensure a fluid user experience.
 
 ```mermaid
 graph TD
     UserMsg[User Message] --> ChatInput[Chat Interface]
-    ChatInput -->|Trigger| ExtractAPI[API Chat: Mode Extract]
-    ChatInput -->|Trigger| ConversationalAPI[API Chat: Mode Chat]
+    ChatInput -->|Background| ExtractAPI[API: Extraction Mode]
+    ChatInput -->|Streaming| ConversationalAPI[API: Chat Mode]
     
-    ExtractAPI -->|JSON| Store[Resume Store]
-    ConversationalAPI -->|Stream| ChatUI[Chat UI]
+    ExtractAPI -->|Structured JSON| Store[RFQ Zustand Store]
+    ConversationalAPI -->|Human Response| ChatUI[Chat Interface]
     
-    Store -->|Reactive Sync| ResumePreview[Resume Preview Canvas]
-    Store -->|Persistence| LocalStorage[(LocalStorage)]
+    Store -->|Real-time Sync| FormPanel[Right Side: RFQ Form]
+    Store -->|Hidden Template| BillCanvas[Bill-style PDF Template]
+    
+    Button[Export PDF] --> BillCanvas
+    BillCanvas --> PDF[Download: Professional RFQ.pdf]
 ```
-
-### 1. Data Extraction Mode (`mode: "extract"`)
-The system sends a background request to the AI with instructions to **only** extract relevant resume data from the user's natural language input.
-- **Input**: *"I worked at Meta as a Senior SWE from 2021 to 2023."*
-- **Output**: `{ "experience": [{ "company": "Meta", "role": "Senior SWE", "years": "2021 - 2023" }] }`
-- **Result**: The resume preview updates instantly without interrupting the conversation.
-
-### 2. Conversational Mode (`mode: "chat"`)
-Simultaneously, a second request handles the human side of the interaction, streaming a conversational reply to guide the user to the next step.
-- **Output**: *"That's impressive experience at Meta! Now, can you tell me about your education?"*
 
 ---
 
 ## 🛠️ Getting Started
 
-### 1. Prerequisite
-Ensure you have an **OpenAI API Key**.
+### 1. Prerequisites
+- **AWS Credentials**: Access to Amazon Bedrock with Claude 3.5 Sonnet enabled.
+- **Node.js**: v18.x or later.
 
 ### 2. Installation
 ```bash
@@ -74,25 +72,31 @@ pnpm install
 ### 3. Environment Setup
 Create a `.env.local` file in the root directory:
 ```bash
-OPENAI_API_KEY=your_openai_api_key_here
+AWS_ACCESS_KEY_ID=your_access_key
+AWS_SECRET_ACCESS_KEY=your_secret_key
+AWS_REGION=your_region (e.g. us-east-1)
 ```
 
-### 4. Development Server
+### 4. Run Development Server
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## 📄 Resume Preview & Export
+## 📄 Documentation
 
-- **Dynamic Templates**: Switch between layouts in the toolbar. This only changes the CSS, keeping your data intact.
-- **PDF Generation**: The "Download PDF" button triggers a specially styled print view (A4 size) to ensure high-quality output for applications.
+- **RFQ Data Structure**: Defined in `src/types/rfq.ts`.
+- **System Prompts**: Industrial logic found in `src/lib/rfq-prompts.ts`.
+- **Export Template**: Custom bill styling in `src/components/rfq-bill-template.tsx`.
 
-## 🚀 Future Roadmap
-- [ ] Multiple resume templates marketplace
-- [ ] AI-based job description matching (Tailor resume to job)
-- [ ] Cover letter generator based on the current resume
-- [ ] LinkedIn profile import functionality
-- [ ] Real-time grammar and impact scoring
+## 🚀 Roadmap
+- [ ] Multi-supplier matching based on material grade.
+- [ ] Integration with ERP systems (SAP/Oracle).
+- [ ] Historical price trend analysis for Indian metal markets.
+- [ ] WhatsApp integration for receiving RFQs.
+
+---
+
+© 2026 MetalRFQ • Professional Procurement Excellence
