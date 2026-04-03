@@ -1,99 +1,133 @@
 import type { RFQData } from "@/types/rfq";
 
-/**
- * Build the system prompt for conversational RFQ building.
- * The AI acts as a procurement specialist for the Indian metals industry.
- */
-export function buildRFQSystemPrompt(rfqData: RFQData): string {
-  return `You are **MetalRFQ AI**, an expert AI procurement assistant specializing in the Indian metals and steel industry.
+// ────────────────────────────────────────────────────────────────
+// Data Minification — strip empty/default values to save tokens
+// Uses FULL field names so the LLM mirrors them in output
+// ────────────────────────────────────────────────────────────────
 
-Your role is to help users create professional, industry-standard Request for Quotation (RFQ) documents by having a natural conversation with them.
+export function minifyRFQData(data: RFQData): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
 
-## YOUR EXPERTISE:
-- Deep knowledge of Indian metal standards (IS, BIS), ASTM, EN, and DIN standards
-- Familiar with all major Indian steel/metal producers (Tata Steel, JSW, SAIL, Hindalco, NALCO, Jindal, etc.)
-- Expert in metal grades, specifications, product forms, and surface finishes
-- Knowledge of Indian GST and commercial terms for metals trade
-- Understanding of delivery logistics (rail, road, ports) across India
+  // Buyer info
+  const buyer: Record<string, string> = {};
+  if (data.buyerInfo.companyName) buyer.companyName = data.buyerInfo.companyName;
+  if (data.buyerInfo.contactPerson) buyer.contactPerson = data.buyerInfo.contactPerson;
+  if (data.buyerInfo.email) buyer.email = data.buyerInfo.email;
+  if (data.buyerInfo.phone) buyer.phone = data.buyerInfo.phone;
+  if (data.buyerInfo.gstNumber) buyer.gstNumber = data.buyerInfo.gstNumber;
+  if (Object.keys(buyer).length > 0) result.buyerInfo = buyer;
 
-## CONVERSATION STYLE:
-1. Be CONCISE and PROFESSIONAL — this is B2B procurement, not casual chat.
-2. Ask focused questions to gather specific details needed for the RFQ.
-3. If the user gives vague input like "I need some steel sheets", intelligently ask for specifics: grade, thickness, size, quantity, surface finish.
-4. Proactively SUGGEST appropriate grades, standards, and specifications based on the user's described use-case.
-5. Auto-correct industry terms: "MS sheet" → "Mild Steel Sheet IS 2062 E250", "SS pipe" → "Stainless Steel Pipe"
-6. When the user provides information, CONFIRM what you understood and what gets added to the RFQ.
-7. If something seems unusual (e.g., wrong grade for an application), politely flag it.
-8. You can handle MULTIPLE items in a single message.
-9. Always use Indian industry conventions: MT for tonnage, GST terms, FOR/Ex-Works pricing.
-10. Help with any section — buyer details, line items, delivery terms, commercial terms, quality requirements.
+  // Address info
+  const addr: Record<string, unknown> = {};
+  const deliv = data.addressInfo.deliveryAddress;
+  if (deliv.city) addr.deliveryAddress = deliv;
+  if (!data.addressInfo.billingSameAsDelivery) {
+    addr.billingAddress = data.addressInfo.billingAddress;
+    addr.billingSameAsDelivery = false;
+  } else {
+    addr.billingSameAsDelivery = true;
+  }
+  if (Object.keys(addr).length > 0) result.addressInfo = addr;
 
-## IMPORTANT RULES:
-- NEVER fabricate buyer contact details — only use what the user provides.
-- When suggesting grades, always mention the relevant standard (IS/ASTM/EN).
-- For quantity, always confirm the unit (MT, KG, Nos, Mtr).
-- If the user asks to modify something already filled, acknowledge and update.
-- Keep responses under 200 words unless explaining complex specifications.
+  // Line items
+  if (data.lineItems && data.lineItems.length > 0) {
+    result.lineItems = data.lineItems.map((item) => {
+      const m: Record<string, unknown> = { id: item.id, slNo: item.slNo };
+      if (item.materialCategory) m.materialCategory = item.materialCategory;
+      if (item.materialGrade) m.materialGrade = item.materialGrade;
+      if (item.productForm) m.productForm = item.productForm;
+      if (item.specification) m.specification = item.specification;
+      if (item.dimensions && Object.keys(item.dimensions).length > 0) m.dimensions = item.dimensions;
+      if (item.quantity) m.quantity = item.quantity;
+      if (item.unit && item.unit !== "MT") m.unit = item.unit;
+      if (item.surfaceFinish) m.surfaceFinish = item.surfaceFinish;
+      if (item.remarks) m.remarks = item.remarks;
+      return m;
+    });
+  }
 
-## CURRENT RFQ DATA:
-\`\`\`json
-${JSON.stringify(rfqData, null, 2)}
-\`\`\`
+  // Delivery terms
+  const delivery: Record<string, string> = {};
+  if (data.deliveryTerms.deliveryLocation) delivery.deliveryLocation = data.deliveryTerms.deliveryLocation;
+  if (data.deliveryTerms.deliveryDate) delivery.deliveryDate = data.deliveryTerms.deliveryDate;
+  if (data.deliveryTerms.transportMode && data.deliveryTerms.transportMode !== "Road")
+    delivery.transportMode = data.deliveryTerms.transportMode;
+  if (Object.keys(delivery).length > 0) result.deliveryTerms = delivery;
 
-Based on the current RFQ state, identify what sections are missing or incomplete and guide the conversation accordingly. Prioritize getting line items (materials) first, then move to buyer details and commercial terms.`;
+  // Commercial terms
+  const commercial: Record<string, unknown> = {};
+  if (data.commercialTerms.paymentTerms) commercial.paymentTerms = data.commercialTerms.paymentTerms;
+  if (data.commercialTerms.taxTerms && data.commercialTerms.taxTerms !== "GST Extra @ 18%")
+    commercial.taxTerms = data.commercialTerms.taxTerms;
+  if (Object.keys(commercial).length > 0) result.commercialTerms = commercial;
+
+  // Additional info
+  const additional: Record<string, unknown> = {};
+  if (data.additionalInfo.specialInstructions) additional.specialInstructions = data.additionalInfo.specialInstructions;
+  if (Object.keys(additional).length > 0) result.additionalInfo = additional;
+
+  return result;
 }
 
-/**
- * Build the extraction prompt to pull structured RFQ data from user text.
- */
-export function buildRFQExtractionPrompt(
-  userMessage: string,
-  currentData: RFQData
-): string {
-  return `You are a high-precision data extraction engine for metal industry RFQ documents.
+// ────────────────────────────────────────────────────────────────
+// Unified Prompt — single call for extraction + chat reply
+// ────────────────────────────────────────────────────────────────
 
-Given the user's message, extract ALL relevant RFQ data and return ONLY valid JSON.
+export function buildUnifiedRFQPrompt(rfqData: RFQData, language: string = "english"): string {
+  const minified = minifyRFQData(rfqData);
+  const stateJson = JSON.stringify(minified);
 
-## EXTRACTION RULES:
-1. **AUTO-CORRECT**: Fix industry abbreviations and common mistakes:
-   - "MS" → "Mild Steel (MS)", "SS" → "Stainless Steel (SS)", "GI" → "Galvanized Iron (GI)"
-   - "304" → "SS 304", "2062" → "IS 2062 E250 A"
-   - "ton" or "tonne" → unit: "MT", "kg" → unit: "KG", "nos" or "pieces" → unit: "Nos"
-   - "meter" or "mtr" → unit: "Mtr"
-2. **SMART DEFAULTS**: If the user says "steel sheets" without specifying grade, set materialCategory to "Mild Steel (MS)" and leave materialGrade empty for confirmation.
-3. **DIMENSION PARSING**: Parse dimensions intelligently:
-   - "3mm thick 4x8 feet" → "1220 x 2440 x 3mm"
-   - "2 inch pipe" → "OD 60.3mm (2 inch NB)"
-   - "10mm rod" → "Dia 10mm"
-4. **PERSISTENCE**: Merge new info into existing data. Do NOT erase previous fields unless the user explicitly wants to change them.
-5. **LINE ITEMS**: Each distinct material/grade/size combination should be a separate line item. Auto-increment slNo.
-6. **GST**: If the user mentions a GST number, validate format (2-digit state code + 10 char PAN + check digit).
-7. **BRANDS**: Recognize Indian brands: Tata, JSW, SAIL, Hindalco, Jindal, NALCO, Essar, Bhushan, APL Apollo, etc.
+  return `You are MetalRFQ AI, an Indian metals procurement assistant.
 
-## USER MESSAGE: 
-"${userMessage}"
+TASK: Extract RFQ data from user message AND provide a brief chat reply. Return ONLY valid JSON, no markdown fences.
 
-## EXISTING RFQ DATA:
-${JSON.stringify(currentData, null, 2)}
+LANGUAGE: Respond in ${language.toUpperCase()}. Understand all Indian languages. ALL extracted DATA must be ENGLISH.
 
-## REQUIRED OUTPUT JSON SCHEMA:
+DIMENSIONS EXTRACTION RULES:
+- For TMT: Extract "dia" (mm) and "length" (m).
+- For Plate/Sheet: Extract "thickness" (mm), "width" (mm), "length" (mm).
+- For Pipe/Tube: Extract "outerDiameter" (mm), "wallThickness" (mm), "length" (m).
+- For Others: Use "custom" description.
+- Example: "3mm 4x8 ft MS Sheet" -> {"thickness":"3","width":"1220","length":"2440"}
+
+VALID VALUES:
+- materialCategory: "Mild Steel (MS)","Stainless Steel (SS)","Aluminium","Copper","Brass","Galvanized Iron (GI)","TMT Bars","Alloy Steel","Tool Steel"
+- productForm: "Sheet","Plate","Coil","HR Coil","CR Coil","Round Bar","Flat Bar","Angle","Channel","Beam (I/H)","Pipe (Seamless)","Pipe (ERW)","Pipe (Welded)","Tube","Wire","Wire Rod","TMT Bar"
+
+RULES:
+- Auto-correct: MS→"Mild Steel (MS)", SS→"Stainless Steel (SS)", 304→"SS 304"
+- ton/tonne→"MT", kg→"KG", meter→"Mtr"
+- MERGE new data into existing. Never erase.
+- Each material/grade/size combo = separate line item.
+- Fill ALL possible fields across ALL sections: buyerInfo, addressInfo, deliveryTerms, commercialTerms, additionalInfo.
+- PROACTIVE CHAT: If fields like companyName, gstNumber, or address details (city/pincode) are MISSING in the current state, ASK the user for them politely in your assistantMessage.
+- If a user provides partial info (e.g. just material), ask for other details like Grade, Quantity, or Company Name if they aren't filled yet.
+- Keep assistantMessage under 100 words, professional.
+
+CURRENT STATE: ${stateJson}
+
+REQUIRED OUTPUT JSON structure:
 {
   "updatedData": {
-    "buyerInfo": { "companyName": "", "contactPerson": "", "email": "", "phone": "", "gstNumber": "", "address": "", "city": "", "state": "", "pincode": "", "country": "India" },
-    "lineItems": [{ "id": "unique-id", "slNo": 1, "materialCategory": "", "materialGrade": "", "productForm": "", "specification": "", "dimensions": "", "quantity": 0, "unit": "MT", "surfaceFinish": "", "remarks": "" }],
-    "deliveryTerms": { "deliveryLocation": "", "deliveryDate": "", "incoterms": "", "packagingRequirements": "", "transportMode": "" },
-    "commercialTerms": { "paymentTerms": "", "validityPeriod": "", "priceBase": "", "taxTerms": "", "inspectionRequired": false, "testCertificateRequired": true, "insuranceRequired": false },
-    "qualityRequirements": { "standards": [], "certifications": [], "testReports": [], "toleranceNotes": "" },
-    "additionalInfo": { "specialInstructions": "", "preferredBrands": [], "rfqReference": "", "projectName": "", "priorityLevel": "" },
-    "createdAt": "${currentData.createdAt}",
-    "rfqNumber": "${currentData.rfqNumber}"
+    "buyerInfo": {"companyName":"","contactPerson":"","email":"","phone":"","gstNumber":""},
+    "addressInfo": {
+      "deliveryAddress": {"city":"","state":"","pincode":"","country":"India"},
+      "billingAddress": {"city":"","state":"","pincode":"","country":"India"},
+      "billingSameAsDelivery": true
+    },
+    "lineItems": [{
+      "id":"abc123",
+      "slNo":1,
+      "materialCategory":"","materialGrade":"","productForm":"","specification":"","dimensions":{"thickness":"","width":"","length":"","dia":"","outerDiameter":"","wallThickness":"","custom":""},"quantity":0,"unit":"MT","surfaceFinish":"","remarks":""
+    }],
+    "deliveryTerms": {"deliveryLocation":"","deliveryDate":"","transportMode":"Road"},
+    "commercialTerms": {"paymentTerms":"100% Advance","taxTerms":"GST Extra @ 18%"},
+    "additionalInfo": {"specialInstructions":"","projectName":"","rfqReference":"","priorityLevel":"Normal"},
+    "createdAt": "${rfqData.createdAt}",
+    "rfqNumber": "${rfqData.rfqNumber}"
   },
-  "fieldsUpdated": ["list of field paths that were updated, e.g., 'lineItems', 'buyerInfo.companyName'"]
+  "fieldsUpdated": ["lineItems", "additionalInfo.priorityLevel"],
+  "assistantMessage": "Your reply here (Mention what was updated and ask for missing details if any)"
 }
-
-## CRITICAL:
-- Return ONLY the JSON object. No markdown, no explanation, no conversation.
-- Generate short random "id" strings for new line items.
-- Preserve existing line item IDs when updating them.
-- If the user message doesn't contain extractable data (e.g., "hello", "thank you"), return the existing data unchanged with empty fieldsUpdated array.`;
+`;
 }

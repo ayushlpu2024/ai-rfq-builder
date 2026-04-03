@@ -8,6 +8,8 @@ interface ChatBubbleProps {
   role: "user" | "assistant";
   content: string;
   isStreaming?: boolean;
+  actions?: { label: string; value: string; type?: string }[];
+  onAction?: (value: string, type?: string) => void;
 }
 
 /**
@@ -81,7 +83,7 @@ function renderInline(text: string): React.ReactNode[] {
   return parts.length > 0 ? parts : [text];
 }
 
-export function ChatBubble({ role, content, isStreaming }: ChatBubbleProps) {
+export function ChatBubble({ role, content, isStreaming, actions, onAction }: ChatBubbleProps) {
   const isUser = role === "user";
 
   return (
@@ -103,26 +105,44 @@ export function ChatBubble({ role, content, isStreaming }: ChatBubbleProps) {
         {isUser ? <User size={16} /> : <Layers size={16} />}
       </div>
 
-      {/* Bubble */}
-      <div
-        className={cn(
-          "relative max-w-[78%] px-4 py-3 rounded-2xl text-sm leading-relaxed",
-          isUser
-            ? "bg-gradient-to-br from-amber-500 to-orange-500 text-white rounded-tr-sm"
-            : "bg-white/90 dark:bg-white/8 text-gray-800 dark:text-gray-100 rounded-tl-sm border border-gray-200/60 dark:border-white/8 backdrop-blur-sm"
-        )}
-      >
-        {isUser ? content : renderMarkdown(content)}
-        {isStreaming && (
-          <span className="inline-flex gap-0.5 ml-1.5 opacity-70">
-            {[0, 1, 2].map((i) => (
-              <span
-                key={i}
-                className="w-1 h-1 rounded-full bg-current animate-bounce"
-                style={{ animationDelay: `${i * 0.15}s`, animationDuration: '0.8s' }}
-              />
+      {/* Bubble container */}
+      <div className={cn("flex flex-col gap-2 max-w-[78%]", isUser ? "items-end" : "items-start")}>
+        {/* Text Area */}
+        <div
+          className={cn(
+            "relative px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm",
+            isUser
+              ? "bg-gradient-to-br from-amber-500 to-orange-500 text-white rounded-tr-sm"
+              : "bg-white/90 dark:bg-white/8 text-gray-800 dark:text-gray-100 rounded-tl-sm border border-gray-200/60 dark:border-white/8 backdrop-blur-sm"
+          )}
+        >
+          {isUser ? content : renderMarkdown(content)}
+          {isStreaming && (
+            <span className="inline-flex gap-0.5 ml-1.5 opacity-70">
+              {[0, 1, 2].map((i) => (
+                <span
+                  key={i}
+                  className="w-1 h-1 rounded-full bg-current animate-bounce"
+                  style={{ animationDelay: `${i * 0.15}s`, animationDuration: '0.8s' }}
+                />
+              ))}
+            </span>
+          )}
+        </div>
+
+        {/* Action Buttons Area */}
+        {actions && actions.length > 0 && !isStreaming && (
+          <div className="flex flex-wrap gap-2 mt-1 px-1 slide-up">
+            {actions.map((act, idx) => (
+              <button
+                key={idx}
+                onClick={() => onAction?.(act.value, act.type)}
+                className="px-3 py-1.5 rounded-full text-[11px] font-medium bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 text-amber-700 dark:text-amber-400 hover:bg-amber-500 hover:text-white dark:hover:bg-amber-500 transition-all duration-200 shadow-sm"
+              >
+                {act.label}
+              </button>
             ))}
-          </span>
+          </div>
         )}
       </div>
     </div>

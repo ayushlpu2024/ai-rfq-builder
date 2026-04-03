@@ -14,13 +14,32 @@ export function useRFQStore() {
   const [isLoading, setIsLoading] = useState(false);
   const [hasHydrated, setHasHydrated] = useState(false);
   const [highlightedFields, setHighlightedFields] = useState<string[]>([]);
+  const [language, setLanguage] = useState("english");
 
   // ── Sync with localStorage AFTER mount ──
   useEffect(() => {
+    const savedLanguage = localStorage.getItem("rfqLanguage");
+    if (savedLanguage) setLanguage(savedLanguage);
+
     const savedData = localStorage.getItem("rfqData");
     if (savedData) {
       try {
-        setRFQData(JSON.parse(savedData) as RFQData);
+        const parsed = JSON.parse(savedData) as RFQData;
+        // Merge with defaults to handle new schema fields (like addressInfo or structured dimensions)
+        setRFQData({
+          ...defaultRFQData,
+          ...parsed,
+          buyerInfo: { ...defaultRFQData.buyerInfo, ...parsed.buyerInfo },
+          addressInfo: { ...defaultRFQData.addressInfo, ...parsed.addressInfo },
+          deliveryTerms: { ...defaultRFQData.deliveryTerms, ...parsed.deliveryTerms },
+          commercialTerms: { ...defaultRFQData.commercialTerms, ...parsed.commercialTerms },
+          qualityRequirements: { ...defaultRFQData.qualityRequirements, ...parsed.qualityRequirements },
+          additionalInfo: { ...defaultRFQData.additionalInfo, ...parsed.additionalInfo },
+          lineItems: parsed.lineItems.map(item => ({
+            ...item,
+            dimensions: typeof item.dimensions === 'string' ? { custom: item.dimensions } : item.dimensions
+          }))
+        });
       } catch (err) {
         console.error("Failed to parse saved RFQ data:", err);
       }
@@ -36,12 +55,32 @@ export function useRFQStore() {
     setHasHydrated(true);
   }, []);
 
-  /** Persist RFQ data */
-  const updateRFQData = useCallback((data: RFQData) => {
-    setRFQData(data);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("rfqData", JSON.stringify(data));
-    }
+  /** Persist RFQ data with merging */
+  const updateRFQData = useCallback((newData: RFQData) => {
+    setRFQData((prev) => {
+      const merged = {
+        ...prev,
+        ...newData,
+        buyerInfo: { ...prev.buyerInfo, ...newData.buyerInfo },
+        addressInfo: {
+          ...prev.addressInfo,
+          ...newData.addressInfo,
+          deliveryAddress: { ...prev.addressInfo.deliveryAddress, ...newData.addressInfo?.deliveryAddress },
+          billingAddress: { ...prev.addressInfo.billingAddress, ...newData.addressInfo?.billingAddress },
+        },
+        deliveryTerms: { ...prev.deliveryTerms, ...newData.deliveryTerms },
+        commercialTerms: { ...prev.commercialTerms, ...newData.commercialTerms },
+        qualityRequirements: { ...prev.qualityRequirements, ...newData.qualityRequirements },
+        additionalInfo: { ...prev.additionalInfo, ...newData.additionalInfo },
+        // Line items are handled differently (usually replaced or appended by AI logic)
+        lineItems: newData.lineItems || prev.lineItems,
+      };
+
+      if (typeof window !== "undefined") {
+        localStorage.setItem("rfqData", JSON.stringify(merged));
+      }
+      return merged;
+    });
   }, []);
 
   /** Update a specific field in the RFQ data */
@@ -139,6 +178,14 @@ export function useRFQStore() {
     }
   }, []);
 
+  /** Update language */
+  const updateLanguage = useCallback((lang: string) => {
+    setLanguage(lang);
+    if (typeof window !== "undefined") {
+      localStorage.setItem("rfqLanguage", lang);
+    }
+  }, []);
+
   return {
     rfqData,
     updateRFQData,
@@ -155,5 +202,7 @@ export function useRFQStore() {
     highlightedFields,
     highlightUpdatedFields,
     resetRFQ,
+    language,
+    updateLanguage,
   };
 }

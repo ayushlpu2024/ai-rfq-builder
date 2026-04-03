@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import type { RFQData } from "@/types/rfq";
+import { RFQData, PAYMENT_TERMS } from "@/types/rfq";
 import { useRFQStore } from "@/hooks/use-rfq-store";
 import { useAutoScroll } from "@/hooks/use-auto-scroll";
 import { useDarkMode } from "@/hooks/use-dark-mode";
@@ -12,7 +12,7 @@ import { TypingIndicator } from "@/components/typing-indicator";
 import { RFQFormPanel } from "@/components/rfq-form-panel";
 import { RFQDownload } from "@/components/rfq-download";
 import { RFQBillTemplate } from "@/components/rfq-bill-template";
-import { defaultRFQData, generateRFQNumber } from "@/lib/rfq-defaults";
+// defaults used by useRFQStore
 import {
   MessageSquare,
   FileText,
@@ -20,6 +20,9 @@ import {
   Package,
   Zap,
 } from "lucide-react";
+
+
+
 
 /** Quick action suggestions shown when chat is empty */
 const QUICK_ACTIONS = [
@@ -40,8 +43,8 @@ const QUICK_ACTIONS = [
   },
   {
     icon: <Zap size={16} />,
-    label: "GI Pipes",
-    prompt: "Looking for GI pipes, 1 inch and 2 inch, B-class, 200 pieces each, 6 meter length",
+    label: "GI Pipes (Hindi)",
+    prompt: "हमें GI पाइप चाहिए, 1 इंच और 2 इंच, B-class, 200 पीस, 6 मीटर लम्बाई",
   },
 ];
 
@@ -61,6 +64,8 @@ export default function RFQBuilder() {
     highlightedFields,
     highlightUpdatedFields,
     resetRFQ,
+    language,
+    updateLanguage,
   } = useRFQStore();
 
   const { isDark, toggle: toggleDark } = useDarkMode();
@@ -68,158 +73,91 @@ export default function RFQBuilder() {
   const [streamingText, setStreamingText] = useState("");
   const [mobileTab, setMobileTab] = useState<"chat" | "form">("chat");
 
-  // ── Initial greeting ──
+  // ── Initial greeting (only after hydration completes) ──
   useEffect(() => {
-    if (messages.length === 0) {
+    if (hasHydrated && messages.length === 0) {
       addMessage(
         "assistant",
-        "Welcome to **MetalRFQ** 🔩\n\nI'm your AI procurement assistant for the metals industry. Tell me what materials you need, and I'll help you create a professional RFQ.\n\n**Try something like:**\n• \"I need 10 MT of SS 304 sheets, 2mm thick\"\n• \"Looking for MS plates IS 2062 for a bridge project\"\n• \"Need Aluminium 6061-T6 round bars, 50mm dia\"\n\nOr use the quick actions below to get started! 👇"
+        "Welcome to **MetalRFQ** 🔩\n\nI'm your AI procurement assistant for the metals industry. You can describe your requirements in **English** or any **Indian Regional Language** (Hindi, Telugu, Bengali, Tamil, etc.).\n\n**Try something like:**\n• \"मुझे 10 MT MS प्लेट चाहिए IS 2062\"\n• \"SS 304 sheet venum, 2mm thickness\"\n• \"I need 5 MT of SS 304 sheets, 2mm thick\"\n\nTell me what materials you need, and I'll fill the form in English for you! 👇"
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [hasHydrated]);
 
-  // ── Stream AI chat response ──
-  const triggerAI = useCallback(
-    async (userMsg: string, dataSnapshot: RFQData) => {
+  // ── Handle user message — single unified AI call ──
+  const handleSend = useCallback(
+    async (text: string) => {
+      if (!text.trim()) return;
+
       setIsLoading(true);
       setStreamingText("");
+      addMessage("user", text);
 
       try {
-        const history = messages.slice(-12).map((m) => ({
+        // Build a sliding window of conversation history (last 8 messages for token savings)
+        const history = messages.slice(-8).map((m) => ({
           role: m.role,
           content: m.content,
         }));
 
+        // ── Single unified API call ──
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            mode: "chat",
-            userMessage: userMsg,
-            rfqData: dataSnapshot,
+            userMessage: text,
+            rfqData: rfqData,
             conversationHistory: history,
+            language: language,
           }),
         });
 
-        if (!res.ok) throw new Error("Chat API error");
-
-        const reader = res.body?.getReader();
-        const decoder = new TextDecoder();
-        let fullText = "";
-
-        if (reader) {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            const chunk = decoder.decode(value, { stream: true });
-            fullText += chunk;
-            setStreamingText(fullText);
-          }
+        if (!res.ok) {
+          const errBody = await res.text();
+          console.error("API error:", res.status, errBody);
+          throw new Error(`API error ${res.status}`);
         }
 
-        addMessage("assistant", fullText);
-        setStreamingText("");
-      } catch (err) {
-        console.error("AI chat error:", err);
-        addMessage(
-          "assistant",
-          "I'm sorry, I encountered an error connecting to the AI service. Please check your AWS credentials in `.env.local` and try again."
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    [messages, addMessage, setIsLoading]
-  );
-
-  // ── Extract structured data from user message ──
-  const extractData = useCallback(
-    async (
-      userMsg: string,
-      currentData: RFQData
-    ): Promise<{ updatedData: RFQData; fieldsUpdated: string[] }> => {
-      try {
-        const res = await fetch("/api/chat", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            mode: "extract",
-            userMessage: userMsg,
-            rfqData: currentData,
-          }),
-        });
-
-        if (!res.ok) return { updatedData: currentData, fieldsUpdated: [] };
-
-        const reader = res.body?.getReader();
-        const decoder = new TextDecoder();
-        let fullText = "";
-
-        if (reader) {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            fullText += decoder.decode(value, { stream: true });
-          }
-        }
-
-        // Parse JSON
-        let cleaned = fullText.trim();
-        if (cleaned.startsWith("```")) {
-          cleaned = cleaned.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-        }
-
-        const parsed = JSON.parse(cleaned) as {
-          updatedData: RFQData;
-          fieldsUpdated: string[];
+        // API now returns proper JSON directly
+        const parsed = (await res.json()) as {
+          updatedData?: RFQData;
+          fieldsUpdated?: string[];
+          assistantMessage?: string;
+          error?: string;
         };
 
-        return {
-          updatedData: parsed.updatedData || currentData,
-          fieldsUpdated: parsed.fieldsUpdated || [],
-        };
-      } catch (err) {
-        console.error("Extraction error:", err);
-        return { updatedData: currentData, fieldsUpdated: [] };
-      }
-    },
-    []
-  );
+        if (parsed.error) {
+          throw new Error(parsed.error);
+        }
 
-  // ── Handle user message ──
-  const handleSend = useCallback(
-    async (text: string) => {
-      if (!text.trim()) return;
-      
-      setIsLoading(true);
-      addMessage("user", text);
-
-      try {
-        // Run extraction and chat response in parallel
-        const [extractResult] = await Promise.all([
-          extractData(text, rfqData),
-        ]);
-
-        // Update RFQ data if extraction found anything
-        if (extractResult.fieldsUpdated.length > 0) {
-          updateRFQData(extractResult.updatedData);
-          highlightUpdatedFields(extractResult.fieldsUpdated);
+        // ── Update RFQ data if extraction found anything ──
+        if (parsed.fieldsUpdated && parsed.fieldsUpdated.length > 0 && parsed.updatedData) {
+          updateRFQData(parsed.updatedData);
+          highlightUpdatedFields(parsed.fieldsUpdated);
           // Switch to form tab on mobile to show updated data
           if (window.innerWidth < 1024) {
             setTimeout(() => setMobileTab("form"), 500);
           }
         }
 
-        // Stream the AI response
-        await triggerAI(text, extractResult.updatedData);
+        // ── Add the assistant's chat message ──
+        if (parsed.assistantMessage) {
+          addMessage("assistant", parsed.assistantMessage);
+        } else {
+          addMessage("assistant", "I've updated the RFQ based on your input. What else would you like to add?");
+        }
       } catch (err) {
-        console.error("Handle send error:", err);
+        console.error("Chat error:", err);
+        addMessage(
+          "assistant",
+          "I'm sorry, I encountered an error processing your request. Please try again or check your connection."
+        );
       } finally {
+        setStreamingText("");
         setIsLoading(false);
       }
     },
-    [addMessage, rfqData, extractData, updateRFQData, highlightUpdatedFields, triggerAI, setIsLoading]
+    [addMessage, rfqData, messages, updateRFQData, highlightUpdatedFields, setIsLoading, language]
   );
 
 
@@ -246,6 +184,12 @@ export default function RFQBuilder() {
         onToggleDark={toggleDark}
         onReset={handleReset}
         rfqNumber={rfqData.rfqNumber}
+        language={language}
+        onLanguageChange={(lang) => {
+          updateLanguage(lang);
+          const langLabel = lang.charAt(0).toUpperCase() + lang.slice(1);
+          addMessage("assistant", `Language switched to **${langLabel}**. We'll continue in ${langLabel} from now on. How can I help you?`);
+        }}
       />
 
       {/* Mobile tab bar */}
@@ -284,9 +228,25 @@ export default function RFQBuilder() {
         >
           {/* Messages area */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 scroll-smooth">
-            {messages.map((msg) => (
-              <ChatBubble key={msg.id} role={msg.role} content={msg.content} />
-            ))}
+            {messages.map((msg) => {
+              const isPaymentAsk = msg.role === "assistant" && msg.content.toLowerCase().includes("payment terms");
+              const actions = isPaymentAsk ? PAYMENT_TERMS.map(t => ({ label: t, value: t, type: 'payment' })) : undefined;
+              
+              return (
+                <ChatBubble 
+                  key={msg.id} 
+                  role={msg.role} 
+                  content={msg.content} 
+                  actions={actions}
+                  onAction={(val, type) => {
+                    if (type === 'payment') {
+                      updateField('commercialTerms', { ...rfqData.commercialTerms, paymentTerms: val });
+                      handleSend(`The user selected ${val} for payment terms. Update the form and confirm.`);
+                    }
+                  }}
+                />
+              );
+            })}
 
             {/* Streaming text */}
             {isLoading && streamingText && (

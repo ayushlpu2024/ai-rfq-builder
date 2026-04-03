@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Download, Loader2, FileSpreadsheet, FileText } from "lucide-react";
-import type { RFQData } from "@/types/rfq";
+import type { RFQData, LineItem } from "@/types/rfq";
 import html2canvas from "html2canvas-pro";
 import { jsPDF } from "jspdf";
 import { cn } from "@/lib/utils";
@@ -85,7 +85,19 @@ export function RFQDownload({ rfqData }: RFQDownloadProps) {
   // ── CSV Export ──
   const handleCSV = () => {
     setShowMenu(false);
-    const { buyerInfo, lineItems, deliveryTerms, commercialTerms } = rfqData;
+    const { buyerInfo, addressInfo, lineItems, deliveryTerms, commercialTerms } = rfqData;
+
+    const formatDims = (item: LineItem) => {
+      const { dimensions } = item;
+      const isSheetPlate = ["Sheet", "Plate", "Coil"].some(f => item.productForm.includes(f));
+      const isPipeTube = ["Pipe", "Tube"].some(f => item.productForm.includes(f));
+      const isTMT = item.materialCategory === "TMT Bars" || item.productForm === "TMT Bar";
+
+      if (isTMT) return `Dia: ${dimensions.dia || "-"}mm, Len: ${dimensions.length || "-"}m`;
+      if (isSheetPlate) return `${dimensions.thickness || "-"}x${dimensions.width || "-"}x${dimensions.length || "-"}mm`;
+      if (isPipeTube) return `OD: ${dimensions.outerDiameter || "-"}mm, WT: ${dimensions.wallThickness || "-"}mm, Len: ${dimensions.length || "-"}m`;
+      return dimensions.custom || "";
+    };
 
     const headers = [
       "Sl.No", "Material Category", "Grade", "Product Form", "Specification",
@@ -98,7 +110,7 @@ export function RFQDownload({ rfqData }: RFQDownloadProps) {
       item.materialGrade,
       item.productForm,
       item.specification,
-      item.dimensions,
+      formatDims(item),
       item.quantity,
       item.unit,
       item.surfaceFinish,
@@ -106,19 +118,14 @@ export function RFQDownload({ rfqData }: RFQDownloadProps) {
     ]);
 
     const meta = [
-      [],
+      ["RFQ SUMMARY"],
       ["RFQ Number", rfqData.rfqNumber],
       ["Date", new Date(rfqData.createdAt).toLocaleDateString("en-IN")],
-      ["Company", buyerInfo.companyName],
-      ["Contact", buyerInfo.contactPerson],
-      ["Email", buyerInfo.email],
-      ["Phone", buyerInfo.phone],
-      ["GST", buyerInfo.gstNumber],
-      ["Delivery Location", deliveryTerms.deliveryLocation],
-      ["Delivery Date", deliveryTerms.deliveryDate],
-      ["Incoterms", deliveryTerms.incoterms],
-      ["Payment Terms", commercialTerms.paymentTerms],
-      ["Tax Terms", commercialTerms.taxTerms],
+      ["Buyer", buyerInfo.companyName],
+      ["GSTIN", buyerInfo.gstNumber],
+      ["Contact", `${buyerInfo.contactPerson} (${buyerInfo.phone})`],
+      ["Delivery Address", `${addressInfo.deliveryAddress.address}, ${addressInfo.deliveryAddress.city}, ${addressInfo.deliveryAddress.pincode}`],
+      ["Billing Address", addressInfo.billingSameAsDelivery ? "Same as Delivery" : `${addressInfo.billingAddress.address}, ${addressInfo.billingAddress.city}, ${addressInfo.billingAddress.pincode}`],
       [],
       headers,
       ...rows,

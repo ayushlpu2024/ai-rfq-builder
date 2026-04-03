@@ -209,6 +209,12 @@ function SelectField({
           className="w-full px-3 py-2 text-sm bg-transparent outline-none text-gray-800 dark:text-gray-200 appearance-none cursor-pointer"
         >
           {placeholder && <option value="">{placeholder}</option>}
+          {/* If current value doesn't match any option, show it as a custom entry */}
+          {value && !options.includes(value) && (
+            <option value={value} className="bg-white dark:bg-gray-900">
+              {value}
+            </option>
+          )}
           {options.map((opt) => (
             <option key={opt} value={opt} className="bg-white dark:bg-gray-900">
               {opt}
@@ -250,6 +256,50 @@ function CheckboxField({
   );
 }
 
+// ── Button Selector ──
+function ButtonSelector({
+  label,
+  value,
+  onChange,
+  options,
+  columns = "grid-cols-2 sm:grid-cols-3",
+  highlight,
+}: {
+  label: string;
+  value: string;
+  onChange: (val: string) => void;
+  options: readonly string[] | string[];
+  columns?: string;
+  highlight?: boolean;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <label className="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+          {label}
+        </label>
+        {highlight && <Sparkles size={12} className="text-amber-500 animate-pulse" />}
+      </div>
+      <div className={cn("grid gap-2", columns)}>
+        {options.map((option) => (
+          <button
+            key={option}
+            onClick={() => onChange(option)}
+            className={cn(
+              "px-2 py-1.5 text-[10px] font-medium rounded-lg border transition-all duration-200 truncate",
+              value === option
+                ? "bg-amber-50 dark:bg-amber-500/10 border-amber-400 text-amber-700 dark:text-amber-400 shadow-sm"
+                : "bg-white dark:bg-white/5 border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:border-amber-300"
+            )}
+          >
+            {option}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Line Item Card ──
 function LineItemCard({
   item,
@@ -264,6 +314,15 @@ function LineItemCard({
 }) {
   const [expanded, setExpanded] = useState(true);
   const availableGrades = item.materialCategory ? COMMON_GRADES[item.materialCategory] || [] : [];
+
+  const updateDim = (dim: keyof LineItem["dimensions"], val: string) => {
+    onUpdate({ dimensions: { ...item.dimensions, [dim]: val } });
+  };
+
+  const isSheetPlate = ["Sheet", "Plate", "Coil", "HR Coil", "CR Coil"].includes(item.productForm);
+  const isPipeTube = ["Pipe (Seamless)", "Pipe (ERW)", "Pipe (Welded)", "Tube"].includes(item.productForm);
+  const isTMT = item.materialCategory === "TMT Bars" || item.productForm === "TMT Bar";
+  const isBar = ["Round Bar", "Flat Bar", "Angle", "Channel", "Beam (I/H)"].includes(item.productForm);
 
   return (
     <div className={cn(
@@ -291,11 +350,6 @@ function LineItemCard({
               : item.materialCategory || "New Item"}
             {item.materialGrade && ` — ${item.materialGrade}`}
           </p>
-          {item.quantity > 0 && (
-            <p className="text-[11px] text-gray-500">
-              {item.quantity} {item.unit} {item.dimensions && `• ${item.dimensions}`}
-            </p>
-          )}
         </div>
         {highlight && <Sparkles size={14} className="text-amber-500 animate-pulse flex-shrink-0" />}
         <button
@@ -342,13 +396,45 @@ function LineItemCard({
               icon={<FileText size={13} />}
             />
           </div>
-          <Field
-            label="Dimensions"
-            value={item.dimensions}
-            onChange={(v) => onUpdate({ dimensions: v })}
-            placeholder="e.g., 1250 x 2500 x 3mm, OD 60mm x 6m"
-            icon={<Ruler size={13} />}
-          />
+
+          {/* Dynamic Dimensions */}
+          <div className="p-3 rounded-lg bg-gray-100/50 dark:bg-white/5 border border-gray-200 dark:border-white/5 space-y-2">
+            <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Dimensions</label>
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {isTMT && (
+                <>
+                  <Field label="Dia (mm)" value={item.dimensions.dia || ""} onChange={(v) => updateDim("dia", v)} placeholder="e.g., 8, 10, 12" />
+                  <Field label="Length (m)" value={item.dimensions.length || ""} onChange={(v) => updateDim("length", v)} placeholder="e.g., 12" />
+                </>
+              )}
+              {isSheetPlate && (
+                <>
+                  <Field label="Thickness (mm)" value={item.dimensions.thickness || ""} onChange={(v) => updateDim("thickness", v)} placeholder="3" />
+                  <Field label="Width (mm)" value={item.dimensions.width || ""} onChange={(v) => updateDim("width", v)} placeholder="1250" />
+                  <Field label="Length (mm)" value={item.dimensions.length || ""} onChange={(v) => updateDim("length", v)} placeholder="2500" />
+                </>
+              )}
+              {isPipeTube && (
+                <>
+                  <Field label="Outer Dia (mm)" value={item.dimensions.outerDiameter || ""} onChange={(v) => updateDim("outerDiameter", v)} placeholder="60.3" />
+                  <Field label="Wall Thk (mm)" value={item.dimensions.wallThickness || ""} onChange={(v) => updateDim("wallThickness", v)} placeholder="3.9" />
+                  <Field label="Length (m)" value={item.dimensions.length || ""} onChange={(v) => updateDim("length", v)} placeholder="6" />
+                </>
+              )}
+              {!isTMT && !isSheetPlate && !isPipeTube && (
+                <div className="col-span-full">
+                  <Field
+                    label="Description / Dimensions"
+                    value={item.dimensions.custom || ""}
+                    onChange={(v) => updateDim("custom", v)}
+                    placeholder="e.g., 50 x 50 x 5mm Angle, 6m long"
+                    icon={<Ruler size={13} />}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="grid grid-cols-3 gap-3">
             <Field
               label="Quantity"
@@ -393,7 +479,41 @@ export function RFQFormPanel({
   onRemoveLineItem,
   highlightedFields,
 }: RFQFormPanelProps) {
-  const { buyerInfo, lineItems, deliveryTerms, commercialTerms, qualityRequirements, additionalInfo } = data;
+  const { 
+    buyerInfo = {
+      companyName: "",
+      contactPerson: "",
+      email: "",
+      phone: "",
+      gstNumber: "",
+    }, 
+    addressInfo = { 
+      deliveryAddress: { city: "", state: "", pincode: "", country: "India" },
+      billingAddress: { city: "", state: "", pincode: "", country: "India" },
+      billingSameAsDelivery: true
+    }, 
+    lineItems = [], 
+    deliveryTerms = {
+      deliveryLocation: "",
+      deliveryDate: "",
+      incoterms: "FOR Destination",
+      packagingRequirements: "",
+      transportMode: "Road",
+    }, 
+    commercialTerms = {
+      paymentTerms: "100% Advance",
+      validityPeriod: "7 days",
+      priceBase: "Per MT",
+      taxTerms: "GST Extra @ 18%",
+    }, 
+    additionalInfo = {
+      specialInstructions: "",
+      preferredBrands: [],
+      rfqReference: "",
+      projectName: "",
+      priorityLevel: "Normal",
+    } 
+  } = data || {};
 
   const isHighlighted = (path: string) => highlightedFields.some(f => f.includes(path));
 
@@ -423,6 +543,37 @@ export function RFQFormPanel({
     );
   }
 
+  // Address form helper
+  const renderAddressFields = (type: 'delivery' | 'billing', label: string) => {
+    const addr = type === 'delivery' ? addressInfo.deliveryAddress : addressInfo.billingAddress;
+    const updateAddr = (updates: Partial<typeof addr>) => {
+      const newAddr = { ...addr, ...updates };
+      if (type === 'delivery') {
+        onUpdateField("addressInfo", {
+          ...addressInfo,
+          deliveryAddress: newAddr,
+          billingAddress: addressInfo.billingSameAsDelivery ? newAddr : addressInfo.billingAddress
+        });
+      } else {
+        onUpdateField("addressInfo", { ...addressInfo, billingAddress: newAddr });
+      }
+    };
+
+    return (
+      <div className="space-y-3 pt-2">
+        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{label}</p>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="City" value={addr.city} onChange={(v) => updateAddr({ city: v })} placeholder="Mumbai" />
+          <Field label="State" value={addr.state} onChange={(v) => updateAddr({ state: v })} placeholder="Maharashtra" />
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="PIN Code" value={addr.pincode} onChange={(v) => updateAddr({ pincode: v })} placeholder="400001" />
+          <Field label="Country" value={addr.country} onChange={(v) => updateAddr({ country: v })} placeholder="India" />
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-3 p-4">
       {/* RFQ Header info */}
@@ -440,10 +591,18 @@ export function RFQFormPanel({
       {/* ── Buyer Information ── */}
       <FormSection
         icon={<Building2 size={16} />}
-        title="Buyer / Company Details"
+        title="Company Details"
         accentColor="amber"
       >
         <div className="space-y-3">
+          <Field
+            label="GST Number"
+            value={buyerInfo.gstNumber}
+            onChange={(v) => onUpdateField("buyerInfo", { ...buyerInfo, gstNumber: v.toUpperCase() })}
+            placeholder="e.g., 27AABCT1234D1Z5"
+            icon={<Hash size={13} />}
+            highlight={isHighlighted("gstNumber")}
+          />
           <div className="grid grid-cols-2 gap-3">
             <Field
               label="Company Name"
@@ -481,56 +640,45 @@ export function RFQFormPanel({
               highlight={isHighlighted("phone")}
             />
           </div>
-          <Field
-            label="GST Number"
-            value={buyerInfo.gstNumber}
-            onChange={(v) => onUpdateField("buyerInfo", { ...buyerInfo, gstNumber: v.toUpperCase() })}
-            placeholder="e.g., 27AABCT1234D1Z5"
-            icon={<Hash size={13} />}
-            highlight={isHighlighted("gstNumber")}
-          />
-          <Field
-            label="Address"
-            value={buyerInfo.address}
-            onChange={(v) => onUpdateField("buyerInfo", { ...buyerInfo, address: v })}
-            placeholder="Street / Area"
-            icon={<MapPin size={13} />}
-            highlight={isHighlighted("address")}
-          />
-          <div className="grid grid-cols-3 gap-3">
-            <Field
-              label="City"
-              value={buyerInfo.city}
-              onChange={(v) => onUpdateField("buyerInfo", { ...buyerInfo, city: v })}
-              placeholder="Mumbai"
-              highlight={isHighlighted("city")}
-            />
-            <Field
-              label="State"
-              value={buyerInfo.state}
-              onChange={(v) => onUpdateField("buyerInfo", { ...buyerInfo, state: v })}
-              placeholder="Maharashtra"
-              highlight={isHighlighted("state")}
-            />
-            <Field
-              label="PIN Code"
-              value={buyerInfo.pincode}
-              onChange={(v) => onUpdateField("buyerInfo", { ...buyerInfo, pincode: v })}
-              placeholder="400001"
-              highlight={isHighlighted("pincode")}
-            />
-          </div>
         </div>
       </FormSection>
 
-      {/* ── Line Items ── */}
+      {/* ── Address Details ── */}
+      <FormSection
+        icon={<MapPin size={16} />}
+        title="Address Details"
+        accentColor="emerald"
+        defaultOpen={false}
+      >
+        <div className="space-y-4">
+          {renderAddressFields('delivery', 'Delivery Address')}
+          
+          <div className="pt-2 border-t border-gray-100 dark:border-white/5">
+            <CheckboxField
+              label="Billing address same as delivery"
+              checked={addressInfo.billingSameAsDelivery}
+              onChange={(v) => {
+                onUpdateField("addressInfo", {
+                  ...addressInfo,
+                  billingSameAsDelivery: v,
+                  billingAddress: v ? { ...addressInfo.deliveryAddress } : addressInfo.billingAddress
+                });
+              }}
+            />
+          </div>
+
+          {!addressInfo.billingSameAsDelivery && renderAddressFields('billing', 'Billing Address')}
+        </div>
+      </FormSection>
+
+      {/* ── Products Section ── */}
       <FormSection
         icon={<Package size={16} />}
-        title="Material Line Items"
-        badge={lineItems.length > 0 ? `${lineItems.length} item${lineItems.length > 1 ? "s" : ""}` : undefined}
+        title={`Products & Materials (${lineItems.length})`}
         accentColor="blue"
+        defaultOpen={true}
       >
-        <div className="space-y-3">
+        <div className="space-y-4">
           {lineItems.map((item) => (
             <LineItemCard
               key={item.id}
@@ -545,70 +693,20 @@ export function RFQFormPanel({
             className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 border-dashed border-gray-300 dark:border-white/10 text-gray-500 dark:text-gray-400 text-sm font-medium hover:border-amber-400 dark:hover:border-amber-500 hover:text-amber-600 dark:hover:text-amber-400 transition-colors duration-200"
           >
             <Plus size={15} />
-            Add Line Item
+            Add Product
           </button>
         </div>
       </FormSection>
 
-      {/* ── Delivery Terms ── */}
-      <FormSection
-        icon={<Truck size={16} />}
-        title="Delivery Terms"
-        accentColor="emerald"
-        defaultOpen={false}
-      >
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
-            <Field
-              label="Delivery Location"
-              value={deliveryTerms.deliveryLocation}
-              onChange={(v) => onUpdateField("deliveryTerms", { ...deliveryTerms, deliveryLocation: v })}
-              placeholder="City / Site address"
-              icon={<MapPin size={13} />}
-              highlight={isHighlighted("deliveryLocation")}
-            />
-            <Field
-              label="Required By Date"
-              value={deliveryTerms.deliveryDate}
-              onChange={(v) => onUpdateField("deliveryTerms", { ...deliveryTerms, deliveryDate: v })}
-              placeholder="DD/MM/YYYY"
-              type="date"
-              highlight={isHighlighted("deliveryDate")}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <SelectField
-              label="Incoterms"
-              value={deliveryTerms.incoterms}
-              onChange={(v) => onUpdateField("deliveryTerms", { ...deliveryTerms, incoterms: v })}
-              options={INCOTERMS}
-              highlight={isHighlighted("incoterms")}
-            />
-            <SelectField
-              label="Transport Mode"
-              value={deliveryTerms.transportMode}
-              onChange={(v) => onUpdateField("deliveryTerms", { ...deliveryTerms, transportMode: v })}
-              options={["Road", "Rail", "Sea", "Air", "Multi-modal"]}
-            />
-          </div>
-          <Field
-            label="Packaging Requirements"
-            value={deliveryTerms.packagingRequirements}
-            onChange={(v) => onUpdateField("deliveryTerms", { ...deliveryTerms, packagingRequirements: v })}
-            placeholder="e.g., Export worthy, rust-preventive oil coat"
-          />
-        </div>
-      </FormSection>
-
-      {/* ── Commercial Terms ── */}
+      {/* ── Payment & Delivery Terms ── */}
       <FormSection
         icon={<CreditCard size={16} />}
-        title="Commercial Terms"
+        title="Payment & Delivery Terms"
         accentColor="violet"
         defaultOpen={false}
       >
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3 pb-2">
             <SelectField
               label="Payment Terms"
               value={commercialTerms.paymentTerms}
@@ -617,20 +715,22 @@ export function RFQFormPanel({
               placeholder="Select..."
               highlight={isHighlighted("paymentTerms")}
             />
-            <Field
-              label="Quote Validity"
-              value={commercialTerms.validityPeriod}
-              onChange={(v) => onUpdateField("commercialTerms", { ...commercialTerms, validityPeriod: v })}
-              placeholder="e.g., 7 days"
-              highlight={isHighlighted("validityPeriod")}
+            <SelectField
+              label="Priority Level"
+              value={additionalInfo.priorityLevel}
+              onChange={(v) => onUpdateField("additionalInfo", { ...additionalInfo, priorityLevel: v })}
+              options={["Normal", "Urgent", "Critical"]}
             />
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <SelectField
-              label="Price Basis"
-              value={commercialTerms.priceBase}
-              onChange={(v) => onUpdateField("commercialTerms", { ...commercialTerms, priceBase: v })}
-              options={["Per MT", "Per KG", "Per Mtr", "Per Nos", "Lumpsum"]}
+
+          <div className="grid grid-cols-2 gap-3 pt-2">
+            <Field
+              label="Required By Date"
+              value={deliveryTerms.deliveryDate}
+              onChange={(v) => onUpdateField("deliveryTerms", { ...deliveryTerms, deliveryDate: v })}
+              placeholder="DD/MM/YYYY"
+              type="date"
+              highlight={isHighlighted("deliveryDate")}
             />
             <Field
               label="Tax Terms"
@@ -639,121 +739,33 @@ export function RFQFormPanel({
               placeholder="e.g., GST Extra @ 18%"
             />
           </div>
-          <div className="flex flex-wrap gap-x-6 gap-y-3 pt-1">
-            <CheckboxField
-              label="Third-party Inspection"
-              checked={commercialTerms.inspectionRequired}
-              onChange={(v) => onUpdateField("commercialTerms", { ...commercialTerms, inspectionRequired: v })}
-            />
-            <CheckboxField
-              label="Mill Test Certificate"
-              checked={commercialTerms.testCertificateRequired}
-              onChange={(v) => onUpdateField("commercialTerms", { ...commercialTerms, testCertificateRequired: v })}
-            />
-            <CheckboxField
-              label="Transit Insurance"
-              checked={commercialTerms.insuranceRequired}
-              onChange={(v) => onUpdateField("commercialTerms", { ...commercialTerms, insuranceRequired: v })}
-            />
-          </div>
         </div>
       </FormSection>
 
-      {/* ── Quality Requirements ── */}
-      <FormSection
-        icon={<ShieldCheck size={16} />}
-        title="Quality & Compliance"
-        accentColor="rose"
-        defaultOpen={false}
-      >
-        <div className="space-y-3">
-          <Field
-            label="Standards (comma-separated)"
-            value={qualityRequirements.standards.join(", ")}
-            onChange={(v) =>
-              onUpdateField("qualityRequirements", {
-                ...qualityRequirements,
-                standards: v.split(",").map((s) => s.trim()).filter(Boolean),
-              })
-            }
-            placeholder="e.g., IS 2062, ASTM A36"
-          />
-          <Field
-            label="Certifications Required (comma-separated)"
-            value={qualityRequirements.certifications.join(", ")}
-            onChange={(v) =>
-              onUpdateField("qualityRequirements", {
-                ...qualityRequirements,
-                certifications: v.split(",").map((s) => s.trim()).filter(Boolean),
-              })
-            }
-            placeholder="e.g., Mill TC, IBR, NABL"
-          />
-          <Field
-            label="Test Reports Required (comma-separated)"
-            value={qualityRequirements.testReports.join(", ")}
-            onChange={(v) =>
-              onUpdateField("qualityRequirements", {
-                ...qualityRequirements,
-                testReports: v.split(",").map((s) => s.trim()).filter(Boolean),
-              })
-            }
-            placeholder="e.g., Chemical, Mechanical, Ultrasonic"
-          />
-          <Field
-            label="Tolerance Notes"
-            value={qualityRequirements.toleranceNotes}
-            onChange={(v) =>
-              onUpdateField("qualityRequirements", {
-                ...qualityRequirements,
-                toleranceNotes: v,
-              })
-            }
-            placeholder="Acceptable tolerance limits..."
-          />
-        </div>
-      </FormSection>
-
-      {/* ── Additional Information ── */}
+      {/* ── Additional Detail ── */}
       <FormSection
         icon={<StickyNote size={16} />}
-        title="Additional Information"
-        accentColor="amber"
-        defaultOpen={false}
+        title="Additional Requirement"
+        accentColor="rose"
+        defaultOpen={true}
       >
-        <div className="space-y-3">
+        <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <Field
               label="Project Name"
               value={additionalInfo.projectName}
               onChange={(v) => onUpdateField("additionalInfo", { ...additionalInfo, projectName: v })}
-              placeholder="Project reference"
-              highlight={isHighlighted("projectName")}
+              placeholder="e.g. Metro Line 3"
+              icon={<FileText size={13} />}
             />
             <Field
-              label="Your RFQ Reference"
+              label="Reference #"
               value={additionalInfo.rfqReference}
               onChange={(v) => onUpdateField("additionalInfo", { ...additionalInfo, rfqReference: v })}
-              placeholder="Internal reference no."
+              placeholder="Internal Ref"
             />
           </div>
-          <SelectField
-            label="Priority Level"
-            value={additionalInfo.priorityLevel}
-            onChange={(v) => onUpdateField("additionalInfo", { ...additionalInfo, priorityLevel: v })}
-            options={["Normal", "Urgent", "Critical"]}
-          />
-          <Field
-            label="Preferred Brands (comma-separated)"
-            value={additionalInfo.preferredBrands.join(", ")}
-            onChange={(v) =>
-              onUpdateField("additionalInfo", {
-                ...additionalInfo,
-                preferredBrands: v.split(",").map((s) => s.trim()).filter(Boolean),
-              })
-            }
-            placeholder="e.g., Tata Steel, JSW, SAIL"
-          />
+
           <div className="space-y-1">
             <label className="text-[11px] font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
               Special Instructions
@@ -766,8 +778,8 @@ export function RFQFormPanel({
                   specialInstructions: e.target.value,
                 })
               }
-              placeholder="Any additional notes, special requirements, or instructions for the supplier..."
-              rows={3}
+              placeholder="Any additional notes, special instructions, or specific requirements..."
+              rows={4}
               className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-white/10 bg-gray-50/50 dark:bg-white/5 text-gray-800 dark:text-gray-200 placeholder:text-gray-400 dark:placeholder:text-gray-600 outline-none focus:border-amber-400 dark:focus:border-amber-500 focus:ring-2 focus:ring-amber-400/20 resize-none transition-all duration-200"
             />
           </div>
