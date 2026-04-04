@@ -1,18 +1,139 @@
-import { bedrock } from "@ai-sdk/amazon-bedrock";
+// import { bedrock } from "@ai-sdk/amazon-bedrock";
+// import { streamText } from "ai";
+// import { buildRFQSystemPrompt, buildRFQExtractionPrompt } from "@/lib/rfq-prompts";
+// import type { RFQData } from "@/types/rfq";
+
+// // Allow streaming responses up to 60 seconds
+// export const maxDuration = 60;
+
+// const model = bedrock("apac.anthropic.claude-3-5-sonnet-20240620-v1:0");
+
+// // ── Claude 3.5 Sonnet pricing (USD per token) ───────────────────
+// const INPUT_PRICE_PER_TOKEN  = 3.0  / 1_000_000;  // $3.00 per 1M input tokens
+// const OUTPUT_PRICE_PER_TOKEN = 15.0 / 1_000_000;   // $15.00 per 1M output tokens
+
+// // ── Global Session Tracking (Resets on server restart) ──────────
+// const sessionUsage = {
+//   promptTokens: 0,
+//   completionTokens: 0,
+//   totalCost: 0,
+//   callCount: 0
+// };
+
+// /** Pretty-print token usage to the server console */
+// function logTokenUsage(mode: string, usage: any) {
+//   // 1. Current Transaction
+//   const promptTokens = usage.promptTokens ?? usage.inputTokens ?? 0;
+//   const completionTokens = usage.completionTokens ?? usage.outputTokens ?? 0;
+//   const inputCost  = promptTokens     * INPUT_PRICE_PER_TOKEN;
+//   const outputCost = completionTokens * OUTPUT_PRICE_PER_TOKEN;
+//   const totalCost  = inputCost + outputCost;
+
+//   // 2. Update Session Totals
+//   sessionUsage.promptTokens     += promptTokens;
+//   sessionUsage.completionTokens += completionTokens;
+//   sessionUsage.totalCost        += totalCost;
+//   sessionUsage.callCount        += 1;
+
+//   console.log(`\n╔══════════════════════════════════════════════╗`);
+//   console.log(`║        🪙  RFQ TOKEN USAGE  [${mode.toUpperCase().padEnd(8)}]      ║`);
+//   console.log(`╠══════════════════════════════════════════════╣`);
+//   console.log(`║  [Current Request]                           ║`);
+//   console.log(`║  Input  Tokens : ${String(promptTokens).padStart(10)}               ║`);
+//   console.log(`║  Output Tokens : ${String(completionTokens).padStart(10)}               ║`);
+//   console.log(`║  💰 COST       :   $${totalCost.toFixed(6).padStart(10)}            ║`);
+//   console.log(`╠══════════════════════════════════════════════╣`);
+//   console.log(`║  🚀 SESSION TOTAL (All Chat Sum)             ║`);
+//   console.log(`║  Calls Count   : ${String(sessionUsage.callCount).padStart(10)}               ║`);
+//   console.log(`║  Accum. Input  : ${String(sessionUsage.promptTokens).padStart(10)}               ║`);
+//   console.log(`║  Accum. Output : ${String(sessionUsage.completionTokens).padStart(10)}               ║`);
+//   console.log(`║  ──────────────────────────────────────────  ║`);
+//   console.log(`║  💎 GRAND TOTAL:   $${sessionUsage.totalCost.toFixed(6).padStart(10)}            ║`);
+//   console.log(`╚══════════════════════════════════════════════╝\n`);
+// }
+
+// /**
+//  * POST /api/chat
+//  * Handles two modes:
+//  *   1. "chat"    — streams the AI's conversational reply for RFQ building
+//  *   2. "extract" — returns structured RFQ JSON from user message
+//  */
+// export async function POST(request: Request) {
+//   const body = await request.json();
+//   const {
+//     mode,
+//     userMessage,
+//     rfqData,
+//     conversationHistory,
+//   }: {
+//     mode: "chat" | "extract";
+//     userMessage: string;
+//     rfqData: RFQData;
+//     conversationHistory?: { role: "user" | "assistant"; content: string }[];
+//   } = body;
+
+//   // ── Extract mode: return structured JSON ──────────────────────
+//   if (mode === "extract") {
+//     const extractionPrompt = buildRFQExtractionPrompt(userMessage, rfqData);
+
+//     const result = await streamText({
+//       model,
+//       messages: [{ role: "user", content: extractionPrompt }],
+//       temperature: 0.1,
+//       onFinish({ usage }) {
+//         logTokenUsage("extract", usage);
+//       },
+//     });
+
+//     return result.toTextStreamResponse();
+//   }
+
+//   // ── Chat mode: stream conversational reply ────────────────────
+//   const systemPrompt = buildRFQSystemPrompt(rfqData);
+
+//   const messages: { role: "user" | "assistant" | "system"; content: string }[] =
+//     [
+//       { role: "system", content: systemPrompt },
+//       ...(conversationHistory ?? []),
+//       { role: "user", content: userMessage },
+//     ];
+
+//   const result = await streamText({
+//     model,
+//     messages,
+//     temperature: 0.6,
+//     maxOutputTokens: 1024,
+//     onFinish({ usage }) {
+//       logTokenUsage("chat", usage);
+//     },
+//   });
+
+//   return result.toTextStreamResponse();
+// }
+
+
+
+
+import { createGroq } from "@ai-sdk/groq";
 import { streamText } from "ai";
 import { buildRFQSystemPrompt, buildRFQExtractionPrompt } from "@/lib/rfq-prompts";
 import type { RFQData } from "@/types/rfq";
 
-// Allow streaming responses up to 60 seconds
 export const maxDuration = 60;
 
-const model = bedrock("apac.anthropic.claude-3-5-sonnet-20240620-v1:0");
+// Initialize Groq Provider
+const groq = createGroq({
+  apiKey: process.env.GROQ_API_KEY,
+});
 
-// ── Claude 3.5 Sonnet pricing (USD per token) ───────────────────
-const INPUT_PRICE_PER_TOKEN  = 3.0  / 1_000_000;  // $3.00 per 1M input tokens
-const OUTPUT_PRICE_PER_TOKEN = 15.0 / 1_000_000;   // $15.00 per 1M output tokens
+// Using the fastest, most capable Llama model
+const model = groq("llama-3.3-70b-versatile");
 
-// ── Global Session Tracking (Resets on server restart) ──────────
+// ── Groq Llama 3.3 70B pricing (USD per token) ───────────────────
+const INPUT_PRICE_PER_TOKEN  = 0.59 / 1_000_000;  // Dropped from $3.00!
+const OUTPUT_PRICE_PER_TOKEN = 0.79 / 1_000_000;  // Dropped from $15.00!
+
+// ── Global Session Tracking ──────────
 const sessionUsage = {
   promptTokens: 0,
   completionTokens: 0,
@@ -20,23 +141,20 @@ const sessionUsage = {
   callCount: 0
 };
 
-/** Pretty-print token usage to the server console */
 function logTokenUsage(mode: string, usage: any) {
-  // 1. Current Transaction
   const promptTokens = usage.promptTokens ?? usage.inputTokens ?? 0;
   const completionTokens = usage.completionTokens ?? usage.outputTokens ?? 0;
   const inputCost  = promptTokens     * INPUT_PRICE_PER_TOKEN;
   const outputCost = completionTokens * OUTPUT_PRICE_PER_TOKEN;
   const totalCost  = inputCost + outputCost;
 
-  // 2. Update Session Totals
   sessionUsage.promptTokens     += promptTokens;
   sessionUsage.completionTokens += completionTokens;
   sessionUsage.totalCost        += totalCost;
   sessionUsage.callCount        += 1;
 
   console.log(`\n╔══════════════════════════════════════════════╗`);
-  console.log(`║        🪙  RFQ TOKEN USAGE  [${mode.toUpperCase().padEnd(8)}]      ║`);
+  console.log(`║        ⚡ GROQ RFQ USAGE  [${mode.toUpperCase().padEnd(8)}]      ║`);
   console.log(`╠══════════════════════════════════════════════╣`);
   console.log(`║  [Current Request]                           ║`);
   console.log(`║  Input  Tokens : ${String(promptTokens).padStart(10)}               ║`);
@@ -45,19 +163,10 @@ function logTokenUsage(mode: string, usage: any) {
   console.log(`╠══════════════════════════════════════════════╣`);
   console.log(`║  🚀 SESSION TOTAL (All Chat Sum)             ║`);
   console.log(`║  Calls Count   : ${String(sessionUsage.callCount).padStart(10)}               ║`);
-  console.log(`║  Accum. Input  : ${String(sessionUsage.promptTokens).padStart(10)}               ║`);
-  console.log(`║  Accum. Output : ${String(sessionUsage.completionTokens).padStart(10)}               ║`);
-  console.log(`║  ──────────────────────────────────────────  ║`);
   console.log(`║  💎 GRAND TOTAL:   $${sessionUsage.totalCost.toFixed(6).padStart(10)}            ║`);
   console.log(`╚══════════════════════════════════════════════╝\n`);
 }
 
-/**
- * POST /api/chat
- * Handles two modes:
- *   1. "chat"    — streams the AI's conversational reply for RFQ building
- *   2. "extract" — returns structured RFQ JSON from user message
- */
 export async function POST(request: Request) {
   const body = await request.json();
   const {
@@ -72,14 +181,18 @@ export async function POST(request: Request) {
     conversationHistory?: { role: "user" | "assistant"; content: string }[];
   } = body;
 
-  // ── Extract mode: return structured JSON ──────────────────────
+  // --- TOKEN OPTIMIZATION 1: Prune Chat History ---
+  // Only send the last 4 messages to the LLM instead of the entire conversation.
+  // The LLM only needs recent context, plus the rfqData JSON, to know what's going on.
+  const prunedHistory = conversationHistory ? conversationHistory.slice(-4) : [];
+
   if (mode === "extract") {
     const extractionPrompt = buildRFQExtractionPrompt(userMessage, rfqData);
 
     const result = await streamText({
       model,
       messages: [{ role: "user", content: extractionPrompt }],
-      temperature: 0.1,
+      temperature: 0.0, // Strict zero for JSON extraction
       onFinish({ usage }) {
         logTokenUsage("extract", usage);
       },
@@ -88,21 +201,20 @@ export async function POST(request: Request) {
     return result.toTextStreamResponse();
   }
 
-  // ── Chat mode: stream conversational reply ────────────────────
+  // Chat Mode
   const systemPrompt = buildRFQSystemPrompt(rfqData);
 
-  const messages: { role: "user" | "assistant" | "system"; content: string }[] =
-    [
-      { role: "system", content: systemPrompt },
-      ...(conversationHistory ?? []),
-      { role: "user", content: userMessage },
-    ];
+  const messages: Parameters<typeof streamText>[0]["messages"] = [
+    { role: "system", content: systemPrompt },
+    ...prunedHistory,
+    { role: "user", content: userMessage },
+  ];
 
   const result = await streamText({
     model,
     messages,
-    temperature: 0.6,
-    maxOutputTokens: 1024,
+    temperature: 0.5,
+    maxOutputTokens: 200, // TOKEN OPTIMIZATION 2: Hard limit on chat replies
     onFinish({ usage }) {
       logTokenUsage("chat", usage);
     },
@@ -110,7 +222,3 @@ export async function POST(request: Request) {
 
   return result.toTextStreamResponse();
 }
-
-
-
-
