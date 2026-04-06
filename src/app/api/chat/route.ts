@@ -1,5 +1,5 @@
 import { bedrock } from "@ai-sdk/amazon-bedrock";
-import { generateText } from "ai";
+import { streamText } from "ai";
 import { buildUnifiedRFQPrompt } from "@/lib/rfq-prompts";
 import type { RFQData } from "@/types/rfq";
 
@@ -90,60 +90,21 @@ export async function POST(request: Request) {
       { role: "user", content: userMessage },
     ];
 
-    // Use generateText (non-streaming) so we get a complete JSON response
-    const result = await generateText({
+    // Use streamText for a better, streaming UI experience
+    const result = await streamText({
       model,
       messages,
       temperature: 0.2,
-      maxTokens: 1500,
+      // Removed maxTokens as it seems to be erroring in this version's type def
+      onFinish: (res) => {
+        if (res.usage) {
+          logTokenUsage("unified", res.usage);
+        }
+      },
     });
 
-    // Log usage
-    if (result.usage) {
-      logTokenUsage("unified", result.usage);
-    }
+    return result.toTextStreamResponse();
 
-    const rawText = result.text;
-
-    // Try to parse the JSON response from the LLM
-    let cleaned = rawText.trim();
-
-    // Strip markdown code fences if the LLM wraps them
-    if (cleaned.startsWith("```")) {
-      cleaned = cleaned.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
-    }
-
-    // Fix literal control characters inside JSON string values
-    cleaned = fixJsonControlChars(cleaned);
-
-    try {
-      const parsed = JSON.parse(cleaned);
-      return Response.json(parsed);
-    } catch (parseErr) {
-      // If JSON parsing fails, try to extract JSON from the response
-      const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        try {
-          const extracted = fixJsonControlChars(jsonMatch[0]);
-          const parsed = JSON.parse(extracted);
-          return Response.json(parsed);
-        } catch {
-          // Fall through to fallback
-        }
-      }
-
-      console.error("Failed to parse LLM response as JSON:", parseErr);
-      console.error("Raw response:", rawText.substring(0, 500));
-
-      // Return a fallback response that the client can handle
-      return Response.json({
-        updatedData: rfqData,
-        fieldsUpdated: [],
-        assistantMessage: rawText.length > 0
-          ? rawText.substring(0, 500)
-          : "I processed your request but couldn't format the response properly. Please try again.",
-      });
-    }
   } catch (err) {
     console.error("API route error:", err);
     return Response.json(
@@ -152,6 +113,7 @@ export async function POST(request: Request) {
     );
   }
 }
+
 
 /**
  * Fix unescaped control characters inside JSON string values.

@@ -84,7 +84,7 @@ export default function RFQBuilder() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasHydrated]);
 
-  // ── Handle user message — single unified AI call ──
+  // ── Handle user message — single unified AI call with streaming ──
   const handleSend = useCallback(
     async (text: string) => {
       if (!text.trim()) return;
@@ -94,13 +94,11 @@ export default function RFQBuilder() {
       addMessage("user", text);
 
       try {
-        // Build a sliding window of conversation history (last 8 messages for token savings)
         const history = messages.slice(-8).map((m) => ({
           role: m.role,
           content: m.content,
         }));
 
-        // ── Single unified API call ──
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -113,44 +111,67 @@ export default function RFQBuilder() {
         });
 
         if (!res.ok) {
-          const errBody = await res.text();
-          console.error("API error:", res.status, errBody);
           throw new Error(`API error ${res.status}`);
         }
 
-        // API now returns proper JSON directly
-        const parsed = (await res.json()) as {
-          updatedData?: RFQData;
-          fieldsUpdated?: string[];
-          assistantMessage?: string;
-          error?: string;
-        };
+        if (!res.body) throw new Error("No response body");
 
-        if (parsed.error) {
-          throw new Error(parsed.error);
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let accumulatedMessage = "";
+        let hasStartedStreaming = false;
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = decoder.decode(value, { stream: true });
+          accumulatedMessage += chunk;
+          hasStartedStreaming = true;
+          
+          // Only show text before the JSON tag in the typing effect
+          const displayPart = accumulatedMessage.split("<rfq_json>")[0];
+          setStreamingText(displayPart.trim());
         }
 
-        // ── Update RFQ data if extraction found anything ──
-        if (parsed.fieldsUpdated && parsed.fieldsUpdated.length > 0 && parsed.updatedData) {
-          updateRFQData(parsed.updatedData);
-          highlightUpdatedFields(parsed.fieldsUpdated);
-          // Switch to form tab on mobile to show updated data
-          if (window.innerWidth < 1024) {
-            setTimeout(() => setMobileTab("form"), 500);
+
+        // ── Post-processing after stream finish ──
+        let assistantMessage = accumulatedMessage;
+        let extractedJson = "";
+
+        if (accumulatedMessage.includes("<rfq_json>")) {
+          const parts = accumulatedMessage.split("<rfq_json>");
+          assistantMessage = parts[0].trim();
+          const jsonPart = parts[1].split("</rfq_json>")[0].trim();
+          extractedJson = jsonPart;
+        }
+
+        if (extractedJson) {
+          try {
+            const parsed = JSON.parse(extractedJson) as {
+              updatedData?: RFQData;
+              fieldsUpdated?: string[];
+            };
+
+            if (parsed.updatedData && parsed.fieldsUpdated) {
+              updateRFQData(parsed.updatedData);
+              highlightUpdatedFields(parsed.fieldsUpdated);
+              
+              if (window.innerWidth < 1024) {
+                setTimeout(() => setMobileTab("form"), 500);
+              }
+            }
+          } catch (err) {
+            console.error("Failed to parse extracted RFQ JSON:", err);
           }
         }
 
-        // ── Add the assistant's chat message ──
-        if (parsed.assistantMessage) {
-          addMessage("assistant", parsed.assistantMessage);
-        } else {
-          addMessage("assistant", "I've updated the RFQ based on your input. What else would you like to add?");
-        }
+        addMessage("assistant", assistantMessage || "I've updated the RFQ based on your input.");
       } catch (err) {
         console.error("Chat error:", err);
         addMessage(
           "assistant",
-          "I'm sorry, I encountered an error processing your request. Please try again or check your connection."
+          "I'm sorry, I encountered an error processing your request. Please try again."
         );
       } finally {
         setStreamingText("");
@@ -159,6 +180,7 @@ export default function RFQBuilder() {
     },
     [addMessage, rfqData, messages, updateRFQData, highlightUpdatedFields, setIsLoading, language]
   );
+
 
 
   // ── Reset handler ──
