@@ -117,25 +117,27 @@ CURRENT STATE: ${stateJson}
 
 REQUIRED JSON structure (inside tag):
 {
-  "updatedData": {
-    "buyerInfo": {"companyName":"","contactPerson":"","email":"","phone":"","gstNumber":""},
-    "addressInfo": {
-      "deliveryAddress": {"city":"","state":"","pincode":"","country":"India"},
-      "billingAddress": {"city":"","state":"","pincode":"","country":"India"},
-      "billingSameAsDelivery": true
+    "updatedData": {
+      "buyerInfo": {"companyName":"","contactPerson":"","email":"","phone":"","gstNumber":""},
+      "addressInfo": {
+        "deliveryAddress": {"city":"","state":"","pincode":"","country":"India"},
+        "billingAddress": {"city":"","state":"","pincode":"","country":"India"},
+        "billingSameAsDelivery": true
+      },
+      "lineItems": [{
+        "id":"abc123",
+        "slNo":1,
+        "materialCategory":"","materialGrade":"","productForm":"","specification":"","dimensions":{"thickness":"","width":"","length":"","dia":"","outerDiameter":"","wallThickness":"","custom":""},"quantity":0,"unit":"MT","surfaceFinish":"","remarks":""
+      }],
+      "deliveryTerms": {"deliveryLocation":"","deliveryDate":"","transportMode":"Road"},
+      "commercialTerms": {"paymentTerms":"100% Advance","taxTerms":"GST Extra @ 18%"},
+      "additionalInfo": {"specialInstructions":"","projectName":"","rfqReference":"","priorityLevel":"Normal"},
+      "createdAt": "${rfqData.createdAt}",
+      "rfqNumber": "${rfqData.rfqNumber}"
     },
-    "lineItems": [{
-      "id":"abc123",
-      "slNo":1,
-      "materialCategory":"","materialGrade":"","productForm":"","specification":"","dimensions":{"thickness":"","width":"","length":"","dia":"","outerDiameter":"","wallThickness":"","custom":""},"quantity":0,"unit":"MT","surfaceFinish":"","remarks":""
-    }],
-    "deliveryTerms": {"deliveryLocation":"","deliveryDate":"","transportMode":"Road"},
-    "commercialTerms": {"paymentTerms":"100% Advance","taxTerms":"GST Extra @ 18%"},
-    "additionalInfo": {"specialInstructions":"","projectName":"","rfqReference":"","priorityLevel":"Normal"},
-    "createdAt": "${rfqData.createdAt}",
-    "rfqNumber": "${rfqData.rfqNumber}"
-  },
-  "assistantMessage": "Your reply here (Mention what was updated and ask for missing details if any)"
+    "fieldsUpdated": ["list", "of", "field", "paths", "that", "changed"],
+    "assistantMessage": "Your reply here (Mention what was updated and ask for missing details if any)"
+  }
 }
 `;
 }

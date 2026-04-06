@@ -153,9 +153,12 @@ export default function RFQBuilder() {
               fieldsUpdated?: string[];
             };
 
-            if (parsed.updatedData && parsed.fieldsUpdated) {
+            if (parsed.updatedData) {
               updateRFQData(parsed.updatedData);
-              highlightUpdatedFields(parsed.fieldsUpdated);
+              
+              if (parsed.fieldsUpdated) {
+                highlightUpdatedFields(parsed.fieldsUpdated);
+              }
               
               if (window.innerWidth < 1024) {
                 setTimeout(() => setMobileTab("form"), 500);
