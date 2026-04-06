@@ -94,9 +94,17 @@ export default function RFQBuilder() {
       addMessage("user", text);
 
       try {
-        const history = messages.slice(-8).map((m) => ({
+        // Strip <rfq_json> blocks from history — already tracked in state, wastes tokens
+        const history = messages.slice(-6).map((m) => ({
           role: m.role,
-          content: m.content,
+          content: m.content.replace(/<rfq_json>[\s\S]*?<\/rfq_json>/g, "").trim(),
+        }));
+
+        // Minify rfqData — strip empty strings, nulls, and empty arrays before sending
+        const minified = JSON.parse(JSON.stringify(rfqData, (_, v) => {
+          if (v === "" || v === null || v === undefined) return undefined;
+          if (Array.isArray(v) && v.length === 0) return undefined;
+          return v;
         }));
 
         const res = await fetch("/api/chat", {
@@ -104,7 +112,7 @@ export default function RFQBuilder() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             userMessage: text,
-            rfqData: rfqData,
+            rfqData: minified,
             conversationHistory: history,
             language: language,
           }),
@@ -165,7 +173,8 @@ export default function RFQBuilder() {
               }
             }
           } catch (err) {
-            console.error("Failed to parse extracted RFQ JSON:", err);
+            // Existing RFQ state is preserved on parse failure — no data loss
+            console.warn("Failed to parse extracted RFQ JSON:", err);
           }
         }
 

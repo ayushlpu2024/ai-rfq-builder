@@ -81,21 +81,21 @@ export async function POST(request: Request) {
 
     const systemPrompt = buildUnifiedRFQPrompt(rfqData, language || "english");
 
-    // Build message array: system + recent history + current user message
-    // Limit history to last 8 messages (4 turns) for token savings
-    const trimmedHistory = (conversationHistory ?? []).slice(-8);
-    const messages: { role: "user" | "assistant" | "system"; content: string }[] = [
-      { role: "system", content: systemPrompt },
+    // Build message array: recent history + current user message
+    // Limit history to last 6 messages (3 turns) for token savings
+    const trimmedHistory = (conversationHistory ?? []).slice(-6);
+    const messages: { role: "user" | "assistant"; content: string }[] = [
       ...trimmedHistory,
       { role: "user", content: userMessage },
     ];
 
-    // Use streamText for a better, streaming UI experience
+    // Use streamText — system prompt passed as dedicated param (correct for Vercel AI SDK)
     const result = await streamText({
       model,
+      system: systemPrompt,
       messages,
       temperature: 0.2,
-      // Removed maxTokens as it seems to be erroring in this version's type def
+      maxOutputTokens: 1024,
       onFinish: (res) => {
         if (res.usage) {
           logTokenUsage("unified", res.usage);

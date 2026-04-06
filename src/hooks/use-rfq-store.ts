@@ -6,6 +6,22 @@ import { defaultRFQData, createEmptyLineItem } from "@/lib/rfq-defaults";
 import { generateId } from "@/lib/utils";
 
 /**
+ * Safe deep merge helper for RFQ objects
+ */
+const deepMerge = (prev: any, next: any) => {
+  if (!next) return prev;
+  const result = { ...prev };
+  for (const key in next) {
+    if (next[key] && typeof next[key] === 'object' && !Array.isArray(next[key])) {
+      result[key] = deepMerge(prev[key] || {}, next[key]);
+    } else {
+      result[key] = next[key];
+    }
+  }
+  return result;
+};
+
+/**
  * RFQ store hook — manages all RFQ state, chat messages, and persistence.
  */
 export function useRFQStore() {
@@ -25,7 +41,7 @@ export function useRFQStore() {
     if (savedData) {
       try {
         const parsed = JSON.parse(savedData) as RFQData;
-        // Merge with defaults to handle new schema fields (like addressInfo or structured dimensions)
+        // Merge with defaults to handle new schema fields
         setRFQData({
           ...defaultRFQData,
           ...parsed,
@@ -57,29 +73,56 @@ export function useRFQStore() {
     setHasHydrated(true);
   }, []);
 
-  /** Persist RFQ data with merging */
+  /** 
+   * Smart merge RFQ data 
+   * Prevents partial AI updates from deleting existing items.
+   */
   const updateRFQData = useCallback((newData: RFQData) => {
     setRFQData((prev) => {
-      const merged = {
+      // 1. Merge top-level metadata and basic sections
+      const merged: RFQData = {
         ...prev,
         ...newData,
-        buyerInfo: { ...prev.buyerInfo, ...newData.buyerInfo },
-        addressInfo: {
-          ...prev.addressInfo,
-          ...newData.addressInfo,
-          deliveryAddress: { ...prev.addressInfo.deliveryAddress, ...newData.addressInfo?.deliveryAddress },
-          billingAddress: { ...prev.addressInfo.billingAddress, ...newData.addressInfo?.billingAddress },
-        },
-        deliveryTerms: { ...prev.deliveryTerms, ...newData.deliveryTerms },
-        commercialTerms: { ...prev.commercialTerms, ...newData.commercialTerms },
-        qualityRequirements: { ...prev.qualityRequirements, ...newData.qualityRequirements },
-        additionalInfo: { ...prev.additionalInfo, ...newData.additionalInfo },
-        // Line items are handled differently (usually replaced or appended by AI logic)
-        lineItems: (newData.lineItems || prev.lineItems).map(item => ({
-          ...item,
-          dimensions: item.dimensions || {}
-        })),
+        buyerInfo: deepMerge(prev.buyerInfo, newData.buyerInfo),
+        addressInfo: deepMerge(prev.addressInfo, newData.addressInfo),
+        deliveryTerms: deepMerge(prev.deliveryTerms, newData.deliveryTerms),
+        commercialTerms: deepMerge(prev.commercialTerms, newData.commercialTerms),
+        qualityRequirements: deepMerge(prev.qualityRequirements, newData.qualityRequirements),
+        additionalInfo: deepMerge(prev.additionalInfo, newData.additionalInfo),
       };
+
+      // 2. SMART MERGE for Line Items
+      if (newData.lineItems && newData.lineItems.length > 0) {
+        const existingItems = [...prev.lineItems];
+        
+        newData.lineItems.forEach((newItem) => {
+          const index = existingItems.findIndex((item) => item.id === newItem.id);
+          
+          // Ensure dimensions is always a valid object
+          const sanitizedItem = {
+            ...newItem,
+            dimensions: typeof newItem.dimensions === 'string' 
+              ? { custom: newItem.dimensions } 
+              : (newItem.dimensions || {})
+          };
+
+          if (index > -1) {
+            // Update existing item
+            existingItems[index] = { ...existingItems[index], ...sanitizedItem };
+          } else {
+            // Append new item
+            existingItems.push(sanitizedItem as any);
+          }
+        });
+
+        // Maintain slNo order and ensure ID consistency
+        merged.lineItems = existingItems.map((item, idx) => ({
+          ...item,
+          slNo: idx + 1,
+        }));
+      } else {
+        merged.lineItems = prev.lineItems;
+      }
 
       if (typeof window !== "undefined") {
         localStorage.setItem("rfqData", JSON.stringify(merged));
