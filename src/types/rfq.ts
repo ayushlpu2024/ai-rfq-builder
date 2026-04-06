@@ -9,11 +9,6 @@ export interface BuyerInfo {
   email: string;
   phone: string;
   gstNumber: string;
-  address: string;
-  city: string;
-  state: string;
-  pincode: string;
-  country: string;
 }
 
 /** Individual metal line-item in the RFQ */
@@ -24,7 +19,16 @@ export interface LineItem {
   materialGrade: string;       // e.g., "IS 2062 E250", "SS 304", "6061-T6"
   productForm: string;         // e.g., "Sheet", "Plate", "Coil", "Bar", "Pipe"
   specification: string;       // e.g., "IS 2062", "ASTM A240", "BIS"
-  dimensions: string;          // e.g., "1250 x 2500 x 3mm", "OD 60mm x 6m"
+  dimensions: {
+    thickness?: string;
+    width?: string;
+    length?: string;
+    dia?: string;
+    outerDiameter?: string;
+    innerDiameter?: string;
+    wallThickness?: string;
+    custom?: string;
+  };
   quantity: number;
   unit: string;                // "MT", "KG", "Nos", "Mtr", "Sqm"
   surfaceFinish: string;       // e.g., "HR", "CR", "Galvanized", "Mirror"
@@ -35,9 +39,21 @@ export interface LineItem {
 export interface DeliveryTerms {
   deliveryLocation: string;
   deliveryDate: string;
-  incoterms: string;           // "Ex-Works", "FOR Destination", "CIF", "FOB"
-  packagingRequirements: string;
   transportMode: string;       // "Road", "Rail", "Sea"
+}
+
+/** Address Information */
+export interface AddressDetails {
+  city: string;
+  state: string;
+  pincode: string;
+  country: string;
+}
+
+export interface AddressInfo {
+  deliveryAddress: AddressDetails;
+  billingAddress: AddressDetails;
+  billingSameAsDelivery: boolean;
 }
 
 /** Payment and commercial terms */
@@ -46,9 +62,6 @@ export interface CommercialTerms {
   validityPeriod: string;      // e.g., "7 days", "15 days"
   priceBase: string;           // "Per MT", "Per KG", "Lumpsum"
   taxTerms: string;            // "GST Extra", "GST Inclusive"
-  inspectionRequired: boolean;
-  testCertificateRequired: boolean;
-  insuranceRequired: boolean;
 }
 
 /** Quality / compliance requirements */
@@ -71,6 +84,7 @@ export interface AdditionalInfo {
 /** The master RFQ state object */
 export interface RFQData {
   buyerInfo: BuyerInfo;
+  addressInfo: AddressInfo;
   lineItems: LineItem[];
   deliveryTerms: DeliveryTerms;
   commercialTerms: CommercialTerms;
