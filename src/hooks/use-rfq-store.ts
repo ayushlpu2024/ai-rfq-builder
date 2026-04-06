@@ -35,9 +35,11 @@ export function useRFQStore() {
           commercialTerms: { ...defaultRFQData.commercialTerms, ...parsed.commercialTerms },
           qualityRequirements: { ...defaultRFQData.qualityRequirements, ...parsed.qualityRequirements },
           additionalInfo: { ...defaultRFQData.additionalInfo, ...parsed.additionalInfo },
-          lineItems: parsed.lineItems.map(item => ({
+          lineItems: (parsed.lineItems || []).map(item => ({
             ...item,
-            dimensions: typeof item.dimensions === 'string' ? { custom: item.dimensions } : item.dimensions
+            dimensions: typeof item.dimensions === 'string' 
+              ? { custom: item.dimensions } 
+              : (item.dimensions || {})
           }))
         });
       } catch (err) {
@@ -73,7 +75,10 @@ export function useRFQStore() {
         qualityRequirements: { ...prev.qualityRequirements, ...newData.qualityRequirements },
         additionalInfo: { ...prev.additionalInfo, ...newData.additionalInfo },
         // Line items are handled differently (usually replaced or appended by AI logic)
-        lineItems: newData.lineItems || prev.lineItems,
+        lineItems: (newData.lineItems || prev.lineItems).map(item => ({
+          ...item,
+          dimensions: item.dimensions || {}
+        })),
       };
 
       if (typeof window !== "undefined") {

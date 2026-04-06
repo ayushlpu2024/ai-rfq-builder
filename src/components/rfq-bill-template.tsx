@@ -5,17 +5,17 @@ interface RFQBillTemplateProps {
 }
 
 export function RFQBillTemplate({ data }: RFQBillTemplateProps) {
-  const { 
-    buyerInfo = { companyName: "", contactPerson: "", email: "", phone: "", gstNumber: "" }, 
-    addressInfo = { 
+  const {
+    buyerInfo = { companyName: "", contactPerson: "", email: "", phone: "", gstNumber: "" },
+    addressInfo = {
       deliveryAddress: { city: "", state: "", pincode: "", country: "India" },
       billingAddress: { city: "", state: "", pincode: "", country: "India" },
       billingSameAsDelivery: true
-    }, 
-    lineItems = [], 
-    deliveryTerms = { deliveryLocation: "", deliveryDate: "", transportMode: "Road" }, 
-    commercialTerms = { paymentTerms: "", taxTerms: "GST Extra @ 18%" }, 
-    additionalInfo = { specialInstructions: "", projectName: "", rfqReference: "" } 
+    },
+    lineItems = [],
+    deliveryTerms = { deliveryLocation: "", deliveryDate: "", transportMode: "Road" },
+    commercialTerms = { paymentTerms: "", taxTerms: "GST Extra @ 18%" },
+    additionalInfo = { specialInstructions: "", projectName: "", rfqReference: "" }
   } = data || {};
 
   const formatDimensions = (item: LineItem) => {
@@ -109,7 +109,7 @@ export function RFQBillTemplate({ data }: RFQBillTemplateProps) {
           <div style={{ padding: "12px", borderRadius: "10px", border: "1px solid #e5e7eb" }}>
             <h3 style={{ margin: "0 0 6px", fontSize: "10px", fontWeight: "800", color: "#4b5563", textTransform: "uppercase" }}>Billing Details</h3>
             <p style={{ margin: 0, color: "#6b7280" }}>
-              {addressInfo?.billingSameAsDelivery ? "Same as Delivery Address" : 
+              {addressInfo?.billingSameAsDelivery ? "Same as Delivery Address" :
                 `${addressInfo?.billingAddress?.city}, ${addressInfo?.billingAddress?.state} ${addressInfo?.billingAddress?.pincode}`}
             </p>
           </div>
@@ -156,8 +156,8 @@ export function RFQBillTemplate({ data }: RFQBillTemplateProps) {
 
       {/* ── Terms & Notes ── */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: "25px", paddingTop: "20px", borderTop: "2px solid #f3f4f6" }}>
-        <div style={{ spaceY: "15px" }}>
-          <div style={{ marginBottom: "15px" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: "15px" }}>
+          <div>
             <h4 style={{ margin: "0 0 5px", fontSize: "10px", fontWeight: "800", color: "#9ca3af", textTransform: "uppercase" }}>Commercial Terms</h4>
             <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
               <p style={{ margin: 0 }}>Payment: <span style={{ fontWeight: "700" }}>{commercialTerms?.paymentTerms || "As Discussed"}</span></p>
@@ -188,7 +188,5 @@ export function RFQBillTemplate({ data }: RFQBillTemplateProps) {
         </p>
       </div>
     </div>
-  );
-}
   );
 }
