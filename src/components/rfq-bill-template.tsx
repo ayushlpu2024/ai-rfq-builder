@@ -6,66 +6,34 @@ interface RFQBillTemplateProps {
 
 export function RFQBillTemplate({ data }: RFQBillTemplateProps) {
   const { 
-    buyerInfo = {
-      companyName: "",
-      contactPerson: "",
-      email: "",
-      phone: "",
-      gstNumber: "",
-    }, 
+    buyerInfo = { companyName: "", contactPerson: "", email: "", phone: "", gstNumber: "" }, 
     addressInfo = { 
       deliveryAddress: { city: "", state: "", pincode: "", country: "India" },
       billingAddress: { city: "", state: "", pincode: "", country: "India" },
       billingSameAsDelivery: true
     }, 
     lineItems = [], 
-    deliveryTerms = {
-      deliveryLocation: "",
-      deliveryDate: "",
-      incoterms: "FOR Destination",
-      packagingRequirements: "",
-      transportMode: "Road",
-    }, 
-    commercialTerms = {
-      paymentTerms: "",
-      validityPeriod: "7 days",
-      priceBase: "Per MT",
-      taxTerms: "GST Extra @ 18%",
-      inspectionRequired: false,
-      testCertificateRequired: true,
-      insuranceRequired: false,
-    }, 
-    qualityRequirements = {
-      standards: [],
-      certifications: ["Mill Test Certificate"],
-      testReports: [],
-      toleranceNotes: "",
-    }, 
-    additionalInfo = {
-      specialInstructions: "",
-      preferredBrands: [],
-      rfqReference: "",
-      projectName: "",
-      priorityLevel: "Normal",
-    } 
+    deliveryTerms = { deliveryLocation: "", deliveryDate: "", transportMode: "Road" }, 
+    commercialTerms = { paymentTerms: "", taxTerms: "GST Extra @ 18%" }, 
+    additionalInfo = { specialInstructions: "", projectName: "", rfqReference: "" } 
   } = data || {};
 
   const formatDimensions = (item: LineItem) => {
     const dimensions = item.dimensions || {};
-    const isSheetPlate = ["Sheet", "Plate", "Coil"].some(f => (item.productForm || "").includes(f));
-    const isPipeTube = ["Pipe", "Tube"].some(f => (item.productForm || "").includes(f));
-    const isTMT = item.materialCategory === "TMT Bars" || item.productForm === "TMT Bar";
+    const productForm = (item.productForm || "").toLowerCase();
+    const isSheetPlate = ["sheet", "plate", "coil"].some(f => productForm.includes(f));
+    const isPipeTube = ["pipe", "tube"].some(f => productForm.includes(f));
+    const isTMT = item.materialCategory === "TMT Bars" || productForm.includes("tmt");
 
     if (isTMT && (dimensions.dia || dimensions.length)) {
-      return `Dia: ${dimensions.dia || "-"} mm x Length: ${dimensions.length || "-"} m`;
+      return `${dimensions.dia || "-"}mm x ${dimensions.length || "-"}m`;
     }
     if (isSheetPlate && (dimensions.thickness || dimensions.width || dimensions.length)) {
-      return `Thk: ${dimensions.thickness || "-"} mm x Width: ${dimensions.width || "-"} mm x Length: ${dimensions.length || "-"} mm`;
+      return `${dimensions.thickness || "-"}mm x ${dimensions.width || "-"}mm x ${dimensions.length || "-"}mm`;
     }
     if (isPipeTube && (dimensions.outerDiameter || dimensions.wallThickness || dimensions.length)) {
-      return `OD: ${dimensions.outerDiameter || "-"} mm x WT: ${dimensions.wallThickness || "-"} mm x Length: ${dimensions.length || "-"} m`;
+      return `OD: ${dimensions.outerDiameter || "-"}mm | WT: ${dimensions.wallThickness || "-"}mm | ${dimensions.length || "-"}m`;
     }
-    // Fallback if dimensions is still a string due to old data not being migrated (handled in store but for safety here too)
     return typeof dimensions === 'string' ? dimensions : (dimensions.custom || "N/A");
   };
 
@@ -74,158 +42,153 @@ export function RFQBillTemplate({ data }: RFQBillTemplateProps) {
       id="rfq-bill-content"
       style={{
         width: "210mm",
-        minHeight: "297mm",
-        padding: "20mm",
+        padding: "15mm",
         backgroundColor: "white",
-        color: "black",
-        fontFamily: "'Inter', system-ui, sans-serif",
-        fontSize: "12px",
-        lineHeight: "1.5",
+        color: "#1a202c",
+        fontFamily: "'Inter', system-ui, -apple-system, sans-serif",
+        fontSize: "11px",
+        lineHeight: "1.4",
         boxSizing: "border-box",
+        position: "relative",
       }}
     >
+      {/* ── Top Accent Bar ── */}
+      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "6px", background: "linear-gradient(90deg, #b45309, #d97706)" }} />
+
       {/* ── Header ── */}
-      <div style={{ borderBottom: "2px solid #000", paddingBottom: "10px", marginBottom: "20px" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-          <div>
-            <h1 style={{ margin: 0, fontSize: "24px", fontWeight: "bold", textTransform: "uppercase", color: "#1a202c" }}>
-              Request For Quotation
-            </h1>
-            <p style={{ margin: "4px 0 0", color: "#4a5568", fontSize: "14px" }}>
-              Ref: <span style={{ fontWeight: "600" }}>{data?.rfqNumber || "N/A"}</span>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "30px", paddingTop: "10px" }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: "22px", fontWeight: "800", letterSpacing: "-0.025em", color: "#111827", textTransform: "uppercase" }}>
+            Quotation Request
+          </h1>
+          <div style={{ display: "flex", gap: "15px", marginTop: "8px" }}>
+            <p style={{ margin: 0, color: "#6b7280" }}>
+              RFQ NO: <span style={{ fontWeight: "700", color: "#111827" }}>{data?.rfqNumber || "N/A"}</span>
+            </p>
+            <p style={{ margin: 0, color: "#6b7280" }}>
+              DATE: <span style={{ fontWeight: "700", color: "#111827" }}>{data?.createdAt ? new Date(data.createdAt).toLocaleDateString("en-GB") : "N/A"}</span>
             </p>
           </div>
-          <div style={{ textAlign: "right" }}>
-            <p style={{ margin: 0, fontSize: "14px" }}>
-              Date: <span style={{ fontWeight: "600" }}>{data?.createdAt ? new Date(data.createdAt).toLocaleDateString("en-IN") : "N/A"}</span>
+        </div>
+        <div style={{ textAlign: "right" }}>
+          <div style={{ background: "#fffbeb", border: "1px solid #fef3c7", padding: "6px 12px", borderRadius: "6px" }}>
+            <p style={{ margin: 0, fontSize: "10px", color: "#92400e", fontWeight: "bold", textTransform: "uppercase", letterSpacing: "0.05em" }}>Status</p>
+            <p style={{ margin: 0, fontSize: "13px", fontWeight: "700", color: "#b45309" }}>PENDING QUOTE</p>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Company & Address Info ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: "25px", marginBottom: "35px" }}>
+        <div style={{ padding: "15px", borderRadius: "10px", border: "1px solid #e5e7eb", background: "#f9fafb" }}>
+          <h3 style={{ margin: "0 0 10px", fontSize: "10px", fontWeight: "800", color: "#4b5563", textTransform: "uppercase", letterSpacing: "0.05em" }}>Company Details</h3>
+          <p style={{ margin: "0 0 4px", fontSize: "15px", fontWeight: "700", color: "#111827" }}>{buyerInfo?.companyName || "N/A"}</p>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "10px" }}>
+            <div>
+              <p style={{ margin: "0", color: "#6b7280", fontSize: "10px" }}>Contact Person</p>
+              <p style={{ margin: "0", fontWeight: "600" }}>{buyerInfo?.contactPerson || "-"}</p>
+            </div>
+            <div>
+              <p style={{ margin: "0", color: "#6b7280", fontSize: "10px" }}>Ph / Email</p>
+              <p style={{ margin: "0", fontWeight: "600" }}>{buyerInfo?.phone || "-"}</p>
+            </div>
+          </div>
+          <div style={{ marginTop: "10px", paddingTop: "10px", borderTop: "1px dashed #d1d5db" }}>
+            <p style={{ margin: "0", color: "#6b7280", fontSize: "10px" }}>GST Identification Number</p>
+            <p style={{ margin: "0", fontWeight: "700", fontSize: "14px", letterSpacing: "0.025em" }}>{buyerInfo?.gstNumber || "NOT PROVIDED"}</p>
+          </div>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+          <div style={{ padding: "12px", borderRadius: "10px", border: "1px solid #e5e7eb" }}>
+            <h3 style={{ margin: "0 0 6px", fontSize: "10px", fontWeight: "800", color: "#4b5563", textTransform: "uppercase" }}>Delivery Address</h3>
+            <p style={{ margin: 0, fontWeight: "600", color: "#374151" }}>
+              {addressInfo?.deliveryAddress?.city}, {addressInfo?.deliveryAddress?.state} {addressInfo?.deliveryAddress?.pincode}
+            </p>
+          </div>
+          <div style={{ padding: "12px", borderRadius: "10px", border: "1px solid #e5e7eb" }}>
+            <h3 style={{ margin: "0 0 6px", fontSize: "10px", fontWeight: "800", color: "#4b5563", textTransform: "uppercase" }}>Billing Details</h3>
+            <p style={{ margin: 0, color: "#6b7280" }}>
+              {addressInfo?.billingSameAsDelivery ? "Same as Delivery Address" : 
+                `${addressInfo?.billingAddress?.city}, ${addressInfo?.billingAddress?.state} ${addressInfo?.billingAddress?.pincode}`}
             </p>
           </div>
         </div>
       </div>
 
-      {/* ── Buyer & GST ── */}
-      <div style={{ marginBottom: "30px", padding: "12px", backgroundColor: "#f8fafc", borderRadius: "8px", border: "1px solid #e2e8f0" }}>
-        <div style={{ display: "flex", justifyContent: "space-between" }}>
-          <div>
-            <p style={{ margin: "0 0 4px", fontSize: "12px", color: "#718096", textTransform: "uppercase" }}>Purchaser / Company</p>
-            <p style={{ margin: "0 0 2px", fontWeight: "bold", fontSize: "16px" }}>{buyerInfo?.companyName || "N/A"}</p>
-            <p style={{ margin: "0", fontSize: "13px" }}>Contact: {buyerInfo?.contactPerson || "N/A"} | Ph: {buyerInfo?.phone || "N/A"}</p>
-            <p style={{ margin: "0", fontSize: "13px", color: "#4a5568" }}>Email: {buyerInfo?.email || "N/A"}</p>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <p style={{ margin: "0 0 4px", fontSize: "12px", color: "#718096", textTransform: "uppercase" }}>GST Number</p>
-            <p style={{ margin: 0, fontWeight: "bold", fontSize: "16px", letterSpacing: "1px" }}>{buyerInfo?.gstNumber || "N/A"}</p>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Addresses ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "30px" }}>
-        <div style={{ padding: "12px", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
-          <h3 style={{ margin: "0 0 8px", fontSize: "12px", fontWeight: "bold", color: "#718096", textTransform: "uppercase" }}>Delivery Address</h3>
-          <div style={{ fontSize: "13px" }}>
-            <p style={{ margin: 0 }}>{addressInfo?.deliveryAddress?.city || "-"}, {addressInfo?.deliveryAddress?.state || "-"} - {addressInfo?.deliveryAddress?.pincode || "-"}</p>
-            <p style={{ margin: 0 }}>{addressInfo?.deliveryAddress?.country || "India"}</p>
-          </div>
-        </div>
-        <div style={{ padding: "12px", border: "1px solid #e2e8f0", borderRadius: "8px" }}>
-          <h3 style={{ margin: "0 0 8px", fontSize: "12px", fontWeight: "bold", color: "#718096", textTransform: "uppercase" }}>Billing Address</h3>
-          <div style={{ fontSize: "13px" }}>
-            {addressInfo?.billingSameAsDelivery ? (
-              <p style={{ fontStyle: "italic", color: "#718096" }}>Same as delivery address</p>
-            ) : (
-              <>
-                <p style={{ margin: 0 }}>{addressInfo?.billingAddress?.city || "-"}, {addressInfo?.billingAddress?.state || "-"} - {addressInfo?.billingAddress?.pincode || "-"}</p>
-                <p style={{ margin: 0 }}>{addressInfo?.billingAddress?.country || "India"}</p>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ── Line Items Table ── */}
-      <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: "30px" }}>
-        <thead>
-          <tr style={{ backgroundColor: "#1a202c", color: "white" }}>
-            <th style={{ padding: "10px 8px", textAlign: "left", width: "40px", fontSize: "11px", textTransform: "uppercase" }}>Sl</th>
-            <th style={{ padding: "10px 8px", textAlign: "left", fontSize: "11px", textTransform: "uppercase" }}>Material / Form / Grade</th>
-            <th style={{ padding: "10px 8px", textAlign: "left", fontSize: "11px", textTransform: "uppercase" }}>Dimensions & Spec</th>
-            <th style={{ padding: "10px 8px", textAlign: "right", width: "80px", fontSize: "11px", textTransform: "uppercase" }}>Qty</th>
-            <th style={{ padding: "10px 8px", textAlign: "left", width: "60px", fontSize: "11px", textTransform: "uppercase" }}>Unit</th>
-          </tr>
-        </thead>
-        <tbody>
-          {lineItems.length > 0 ? (
-            lineItems.map((item, index) => (
-              <tr key={item.id} style={{ borderBottom: "1px solid #e2e8f0" }}>
-                <td style={{ padding: "12px 8px", verticalAlign: "top" }}>{item.slNo || index + 1}</td>
-                <td style={{ padding: "12px 8px" }}>
-                  <div style={{ fontWeight: "bold", fontSize: "13px" }}>
-                    {item.materialCategory} {item.productForm}
-                  </div>
-                  <div style={{ fontWeight: "600", color: "#2b6cb0", marginTop: "2px" }}>Grade: {item.materialGrade}</div>
-                  {item.surfaceFinish && (
-                    <div style={{ fontSize: "11px", color: "#718096", marginTop: "2px" }}>Finish: {item.surfaceFinish}</div>
-                  )}
-                </td>
-                <td style={{ padding: "12px 8px", verticalAlign: "top" }}>
-                  <div style={{ fontWeight: "bold" }}>{formatDimensions(item)}</div>
-                  <div style={{ fontSize: "11px", color: "#4a5568", marginTop: "2px" }}>{item.specification || "Standard Specification"}</div>
-                  {item.remarks && (
-                    <div style={{ fontSize: "11px", color: "#718096", marginTop: "4px", fontStyle: "italic" }}>
-                      Note: {item.remarks}
-                    </div>
-                  )}
-                </td>
-                <td style={{ padding: "12px 8px", textAlign: "right", verticalAlign: "top", fontWeight: "bold" }}>
-                  {item.quantity}
-                </td>
-                <td style={{ padding: "12px 8px", verticalAlign: "top" }}>{item.unit}</td>
-              </tr>
-            ))
-          ) : (
+      {/* ── Line Items ── */}
+      <div style={{ marginBottom: "35px" }}>
+        <table style={{ width: "100%", borderCollapse: "separate", borderSpacing: "0" }}>
+          <thead>
             <tr>
-              <td colSpan={5} style={{ padding: "20px", textAlign: "center", color: "#a0aec0" }}>No items added.</td>
+              <th style={{ padding: "12px 10px", background: "#111827", color: "white", textAlign: "left", borderRadius: "8px 0 0 0", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>#</th>
+              <th style={{ padding: "12px 10px", background: "#111827", color: "white", textAlign: "left", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>Description</th>
+              <th style={{ padding: "12px 10px", background: "#111827", color: "white", textAlign: "left", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>Size / Dimensions</th>
+              <th style={{ padding: "12px 10px", background: "#111827", color: "white", textAlign: "right", borderRadius: "0 8px 0 0", fontSize: "10px", fontWeight: "700", textTransform: "uppercase" }}>Quantity</th>
             </tr>
-          )}
-        </tbody>
-      </table>
-
-      {/* ── Payment & Delivery Terms ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px", marginBottom: "30px" }}>
-        <div style={{ border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px" }}>
-          <h3 style={{ margin: "0 0 10px", fontSize: "11px", fontWeight: "bold", textTransform: "uppercase", color: "#718096" }}>Delivery Details</h3>
-          <table style={{ width: "100%", fontSize: "12px" }}>
-            <tbody>
-              <tr><td style={{ color: "#718096", padding: "4px 0" }}>Required Date:</td><td style={{ fontWeight: "600" }}>{deliveryTerms?.deliveryDate || "N/A"}</td></tr>
-              <tr><td style={{ color: "#718096", padding: "4px 0" }}>Transport:</td><td style={{ fontWeight: "600" }}>{deliveryTerms?.transportMode || "Road"}</td></tr>
-            </tbody>
-          </table>
-        </div>
-        <div style={{ border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px" }}>
-          <h3 style={{ margin: "0 0 10px", fontSize: "11px", fontWeight: "bold", textTransform: "uppercase", color: "#718096" }}>Commercial Terms</h3>
-          <table style={{ width: "100%", fontSize: "12px" }}>
-            <tbody>
-              <tr><td style={{ color: "#718096", padding: "4px 0" }}>Payment:</td><td style={{ fontWeight: "600" }}>{commercialTerms?.paymentTerms || "As per policy"}</td></tr>
-              <tr><td style={{ color: "#718096", padding: "4px 0" }}>Taxation:</td><td style={{ fontWeight: "600" }}>{commercialTerms?.taxTerms}</td></tr>
-            </tbody>
-          </table>
-        </div>
+          </thead>
+          <tbody>
+            {lineItems.length > 0 ? (
+              lineItems.map((item, index) => (
+                <tr key={item.id} style={{ background: index % 2 === 0 ? "white" : "#f9fafb" }}>
+                  <td style={{ padding: "12px 10px", borderBottom: "1px solid #f3f4f6", verticalAlign: "top", fontWeight: "700", color: "#9ca3af" }}>{String(index + 1).padStart(2, '0')}</td>
+                  <td style={{ padding: "12px 10px", borderBottom: "1px solid #f3f4f6" }}>
+                    <div style={{ fontWeight: "700", fontSize: "13px", color: "#111827" }}>{item.materialCategory} | {item.productForm}</div>
+                    <div style={{ color: "#4b5563", marginTop: "2px", fontWeight: "500" }}>Grade: <span style={{ color: "#d97706" }}>{item.materialGrade}</span></div>
+                    {item.remarks && <div style={{ fontSize: "10px", color: "#9ca3af", fontStyle: "italic", marginTop: "4px" }}>Note: {item.remarks}</div>}
+                  </td>
+                  <td style={{ padding: "12px 10px", borderBottom: "1px solid #f3f4f6", verticalAlign: "top" }}>
+                    <div style={{ fontWeight: "600", color: "#374151" }}>{formatDimensions(item)}</div>
+                    <div style={{ fontSize: "10px", color: "#6b7280", marginTop: "2px" }}>{item.specification || "Standard Spec"}</div>
+                  </td>
+                  <td style={{ padding: "12px 10px", borderBottom: "1px solid #f3f4f6", textAlign: "right", verticalAlign: "top" }}>
+                    <div style={{ fontWeight: "800", fontSize: "14px", color: "#111827" }}>{item.quantity}</div>
+                    <div style={{ fontSize: "10px", fontWeight: "600", color: "#6b7280" }}>{item.unit}</div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr><td colSpan={4} style={{ padding: "30px", textAlign: "center", color: "#9ca3af" }}>No items listed.</td></tr>
+            )}
+          </tbody>
+        </table>
       </div>
 
-      {/* ── Additional Info ── */}
-      {additionalInfo.specialInstructions && (
-        <div style={{ border: "1px solid #e2e8f0", borderRadius: "8px", padding: "12px" }}>
-          <h3 style={{ margin: "0 0 8px", fontSize: "11px", fontWeight: "bold", textTransform: "uppercase", color: "#718096" }}>Special Instructions / Additional Details</h3>
-          <p style={{ margin: 0, fontSize: "13px", whiteSpace: "pre-wrap" }}>{additionalInfo.specialInstructions}</p>
+      {/* ── Terms & Notes ── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1.5fr", gap: "25px", paddingTop: "20px", borderTop: "2px solid #f3f4f6" }}>
+        <div style={{ spaceY: "15px" }}>
+          <div style={{ marginBottom: "15px" }}>
+            <h4 style={{ margin: "0 0 5px", fontSize: "10px", fontWeight: "800", color: "#9ca3af", textTransform: "uppercase" }}>Commercial Terms</h4>
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <p style={{ margin: 0 }}>Payment: <span style={{ fontWeight: "700" }}>{commercialTerms?.paymentTerms || "As Discussed"}</span></p>
+              <p style={{ margin: 0 }}>Taxes: <span style={{ fontWeight: "700" }}>{commercialTerms?.taxTerms}</span></p>
+            </div>
+          </div>
+          <div>
+            <h4 style={{ margin: "0 0 5px", fontSize: "10px", fontWeight: "800", color: "#9ca3af", textTransform: "uppercase" }}>Logistics</h4>
+            <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
+              <p style={{ margin: 0 }}>Mode: <span style={{ fontWeight: "700" }}>{deliveryTerms?.transportMode}</span></p>
+              <p style={{ margin: 0 }}>Expected: <span style={{ fontWeight: "700" }}>{deliveryTerms?.deliveryDate || "Urgent"}</span></p>
+            </div>
+          </div>
         </div>
-      )}
 
-      {/* ── Footer ── */}
-      <div style={{ marginTop: "40px", paddingTop: "20px", borderTop: "1px solid #e2e8f0", textAlign: "center" }}>
-        <p style={{ margin: 0, fontSize: "11px", color: "#718096" }}>This is an AI-generated Request for Quotation.</p>
-        <p style={{ margin: "4px 0 0", fontSize: "10px", color: "#a0aec0" }}>© {new Date().getFullYear()} MetalRFQ Builder</p>
+        {additionalInfo.specialInstructions && (
+          <div style={{ padding: "15px", borderRadius: "10px", background: "#fdf2f8", border: "1px solid #fce7f3" }}>
+            <h4 style={{ margin: "0 0 8px", fontSize: "10px", fontWeight: "800", color: "#be185d", textTransform: "uppercase" }}>Special Instructions</h4>
+            <p style={{ margin: 0, fontSize: "12px", color: "#831843", whiteSpace: "pre-wrap" }}>{additionalInfo.specialInstructions}</p>
+          </div>
+        )}
+      </div>
+
+      {/* ── Disclaimer ── */}
+      <div style={{ marginTop: "50px", textAlign: "center" }}>
+        <p style={{ margin: 0, fontSize: "9px", color: "#9ca3af", letterSpacing: "0.025em" }}>
+          THIS IS AN AUTOMATED REQUEST GENERATED BY METALRFQ AI. VERIFY ALL DIMENSIONS BEFORE QUOTING.
+        </p>
       </div>
     </div>
+  );
+}
   );
 }
