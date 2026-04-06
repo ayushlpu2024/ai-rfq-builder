@@ -316,7 +316,7 @@ function LineItemCard({
   const availableGrades = item.materialCategory ? COMMON_GRADES[item.materialCategory] || [] : [];
 
   const updateDim = (dim: keyof LineItem["dimensions"], val: string) => {
-    onUpdate({ dimensions: { ...item.dimensions, [dim]: val } });
+    onUpdate({ dimensions: { ...(item.dimensions || {}), [dim]: val } });
   };
 
   const isSheetPlate = ["Sheet", "Plate", "Coil", "HR Coil", "CR Coil"].includes(item.productForm);
@@ -400,39 +400,45 @@ function LineItemCard({
           {/* Dynamic Dimensions */}
           <div className="p-3 rounded-lg bg-gray-100/50 dark:bg-white/5 border border-gray-200 dark:border-white/5 space-y-2">
             <label className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Dimensions</label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {isTMT && (
-                <>
-                  <Field label="Dia (mm)" value={item.dimensions.dia || ""} onChange={(v) => updateDim("dia", v)} placeholder="e.g., 8, 10, 12" />
-                  <Field label="Length (m)" value={item.dimensions.length || ""} onChange={(v) => updateDim("length", v)} placeholder="e.g., 12" />
-                </>
-              )}
-              {isSheetPlate && (
-                <>
-                  <Field label="Thickness (mm)" value={item.dimensions.thickness || ""} onChange={(v) => updateDim("thickness", v)} placeholder="3" />
-                  <Field label="Width (mm)" value={item.dimensions.width || ""} onChange={(v) => updateDim("width", v)} placeholder="1250" />
-                  <Field label="Length (mm)" value={item.dimensions.length || ""} onChange={(v) => updateDim("length", v)} placeholder="2500" />
-                </>
-              )}
-              {isPipeTube && (
-                <>
-                  <Field label="Outer Dia (mm)" value={item.dimensions.outerDiameter || ""} onChange={(v) => updateDim("outerDiameter", v)} placeholder="60.3" />
-                  <Field label="Wall Thk (mm)" value={item.dimensions.wallThickness || ""} onChange={(v) => updateDim("wallThickness", v)} placeholder="3.9" />
-                  <Field label="Length (m)" value={item.dimensions.length || ""} onChange={(v) => updateDim("length", v)} placeholder="6" />
-                </>
-              )}
-              {!isTMT && !isSheetPlate && !isPipeTube && (
-                <div className="col-span-full">
-                  <Field
-                    label="Description / Dimensions"
-                    value={item.dimensions.custom || ""}
-                    onChange={(v) => updateDim("custom", v)}
-                    placeholder="e.g., 50 x 50 x 5mm Angle, 6m long"
-                    icon={<Ruler size={13} />}
-                  />
+            {/* Safe access to dimensions */}
+            {(() => {
+              const dims = item.dimensions || {};
+              return (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {isTMT && (
+                    <>
+                      <Field label="Dia (mm)" value={dims.dia || ""} onChange={(v) => updateDim("dia", v)} placeholder="e.g., 8, 10, 12" />
+                      <Field label="Length (m)" value={dims.length || ""} onChange={(v) => updateDim("length", v)} placeholder="e.g., 12" />
+                    </>
+                  )}
+                  {isSheetPlate && (
+                    <>
+                      <Field label="Thickness (mm)" value={dims.thickness || ""} onChange={(v) => updateDim("thickness", v)} placeholder="3" />
+                      <Field label="Width (mm)" value={dims.width || ""} onChange={(v) => updateDim("width", v)} placeholder="1250" />
+                      <Field label="Length (mm)" value={dims.length || ""} onChange={(v) => updateDim("length", v)} placeholder="2500" />
+                    </>
+                  )}
+                  {isPipeTube && (
+                    <>
+                      <Field label="Outer Dia (mm)" value={dims.outerDiameter || ""} onChange={(v) => updateDim("outerDiameter", v)} placeholder="60.3" />
+                      <Field label="Wall Thk (mm)" value={dims.wallThickness || ""} onChange={(v) => updateDim("wallThickness", v)} placeholder="3.9" />
+                      <Field label="Length (m)" value={dims.length || ""} onChange={(v) => updateDim("length", v)} placeholder="6" />
+                    </>
+                  )}
+                  {!isTMT && !isSheetPlate && !isPipeTube && (
+                    <div className="col-span-full">
+                      <Field
+                        label="Description / Dimensions"
+                        value={dims.custom || ""}
+                        onChange={(v) => updateDim("custom", v)}
+                        placeholder="e.g., 50 x 50 x 5mm Angle, 6m long"
+                        icon={<Ruler size={13} />}
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
+              );
+            })()}
           </div>
 
           <div className="grid grid-cols-3 gap-3">
