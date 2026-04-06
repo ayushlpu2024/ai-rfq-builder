@@ -20,7 +20,17 @@ export function useRFQStore() {
     const savedData = localStorage.getItem("rfqData");
     if (savedData) {
       try {
-        setRFQData(JSON.parse(savedData) as RFQData);
+        const parsed = JSON.parse(savedData);
+        // Merge with defaults to handle cases where localStorage might have partial/stale data
+        setRFQData({
+          ...defaultRFQData,
+          ...parsed,
+          buyerInfo: { ...defaultRFQData.buyerInfo, ...(parsed.buyerInfo || {}) },
+          deliveryTerms: { ...defaultRFQData.deliveryTerms, ...(parsed.deliveryTerms || {}) },
+          commercialTerms: { ...defaultRFQData.commercialTerms, ...(parsed.commercialTerms || {}) },
+          qualityRequirements: { ...defaultRFQData.qualityRequirements, ...(parsed.qualityRequirements || {}) },
+          additionalInfo: { ...defaultRFQData.additionalInfo, ...(parsed.additionalInfo || {}) },
+        });
       } catch (err) {
         console.error("Failed to parse saved RFQ data:", err);
       }

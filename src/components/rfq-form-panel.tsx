@@ -798,7 +798,7 @@ import {
   INCOTERMS,
   PAYMENT_TERMS,
 } from "@/types/rfq";
-import { createEmptyLineItem } from "@/lib/rfq-defaults";
+import { defaultRFQData, createEmptyLineItem } from "@/lib/rfq-defaults";
 import { cn } from "@/lib/utils";
 import {
   Building2,
@@ -1109,6 +1109,16 @@ function LineItemCard({
     ? COMMON_GRADES[item.materialCategory as keyof typeof COMMON_GRADES] 
     : allGrades;
 
+  const safeRender = (val: any): React.ReactNode => {
+    if (val === null || val === undefined) return "";
+    if (typeof val === "object") {
+      return Object.entries(val)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(", ");
+    }
+    return String(val);
+  };
+
   return (
     <div className={cn(
       "rounded-xl border transition-all duration-300",
@@ -1131,13 +1141,13 @@ function LineItemCard({
         <div className="flex-1 min-w-0">
           <p className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">
             {item.materialCategory && item.productForm
-              ? `${item.materialCategory} ${item.productForm}`
-              : item.materialCategory || "New Item"}
-            {item.materialGrade && ` — ${item.materialGrade}`}
+              ? `${safeRender(item.materialCategory)} ${safeRender(item.productForm)}`
+              : safeRender(item.materialCategory) || "New Item"}
+            {item.materialGrade && ` — ${safeRender(item.materialGrade)}`}
           </p>
           {item.quantity > 0 && (
             <p className="text-[11px] text-gray-500">
-              {item.quantity} {item.unit} {item.dimensions && `• ${item.dimensions}`}
+              {item.quantity} {item.unit} {item.dimensions && `• ${safeRender(item.dimensions)}`}
             </p>
           )}
         </div>
@@ -1240,12 +1250,19 @@ export function RFQFormPanel({
   onRemoveLineItem,
   highlightedFields,
 }: RFQFormPanelProps) {
-  const { buyerInfo, lineItems, deliveryTerms, commercialTerms, qualityRequirements, additionalInfo } = data;
+  const { 
+    buyerInfo = defaultRFQData.buyerInfo, 
+    lineItems = [], 
+    deliveryTerms = defaultRFQData.deliveryTerms, 
+    commercialTerms = defaultRFQData.commercialTerms, 
+    qualityRequirements = defaultRFQData.qualityRequirements, 
+    additionalInfo = defaultRFQData.additionalInfo 
+  } = data || {};
 
-  const isHighlighted = (path: string) => highlightedFields.some(f => f.includes(path));
+  const isHighlighted = (path: string) => (highlightedFields || []).some(f => f.includes(path));
 
   // No content state
-  const isEmpty = !buyerInfo.companyName && lineItems.length === 0;
+  const isEmpty = (!buyerInfo?.companyName) && (lineItems?.length === 0);
 
   if (isEmpty) {
     return (

@@ -1,12 +1,32 @@
 import React from "react";
 import type { RFQData } from "@/types/rfq";
+import { defaultRFQData } from "@/lib/rfq-defaults";
 
 interface RFQBillTemplateProps {
   data: RFQData;
 }
 
 export function RFQBillTemplate({ data }: RFQBillTemplateProps) {
-  const { buyerInfo, lineItems, deliveryTerms, commercialTerms, qualityRequirements, additionalInfo } = data;
+  const { 
+    buyerInfo = defaultRFQData.buyerInfo, 
+    lineItems = [], 
+    deliveryTerms = defaultRFQData.deliveryTerms, 
+    commercialTerms = defaultRFQData.commercialTerms, 
+    qualityRequirements = defaultRFQData.qualityRequirements, 
+    additionalInfo = defaultRFQData.additionalInfo 
+  } = data || {};
+
+  /** Helper to safely render values that might be objects (e.g. from LLM extraction error) */
+  const safeRender = (val: any): React.ReactNode => {
+    if (val === null || val === undefined) return "";
+    if (typeof val === "object") {
+      // If it's an object with keys like {thickness: '2mm'}, join the values
+      return Object.entries(val)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(", ");
+    }
+    return String(val);
+  };
 
   return (
     <div
@@ -54,12 +74,12 @@ export function RFQBillTemplate({ data }: RFQBillTemplateProps) {
             Buyer Details
           </h2>
           <div style={{ fontSize: "14px" }}>
-            <p style={{ margin: "0 0 4px", fontWeight: "bold", fontSize: "16px" }}>{buyerInfo.companyName || "N/A"}</p>
-            <p style={{ margin: "0 0 2px" }}>{buyerInfo.address}</p>
-            <p style={{ margin: "0 0 8px" }}>{buyerInfo.city}{buyerInfo.state ? `, ${buyerInfo.state}` : ""}{buyerInfo.pincode ? ` - ${buyerInfo.pincode}` : ""}</p>
-            {buyerInfo.gstNumber && (
+            <p style={{ margin: "0 0 4px", fontWeight: "bold", fontSize: "16px" }}>{safeRender(buyerInfo?.companyName) || "N/A"}</p>
+            <p style={{ margin: "0 0 2px" }}>{safeRender(buyerInfo?.address)}</p>
+            <p style={{ margin: "0 0 8px" }}>{safeRender(buyerInfo?.city)}{buyerInfo?.state ? `, ${safeRender(buyerInfo.state)}` : ""}{buyerInfo?.pincode ? ` - ${safeRender(buyerInfo.pincode)}` : ""}</p>
+            {buyerInfo?.gstNumber && (
               <p style={{ margin: "0", fontSize: "12px" }}>
-                GSTIN: <span style={{ fontWeight: "600" }}>{buyerInfo.gstNumber}</span>
+                GSTIN: <span style={{ fontWeight: "600" }}>{safeRender(buyerInfo.gstNumber)}</span>
               </p>
             )}
           </div>
@@ -102,7 +122,7 @@ export function RFQBillTemplate({ data }: RFQBillTemplateProps) {
                     {item.materialCategory} {item.productForm}
                   </div>
                   <div style={{ fontSize: "12px", color: "#4a5568", marginTop: "4px" }}>
-                    {item.dimensions}
+                    {safeRender(item.dimensions)}
                   </div>
                   {item.surfaceFinish && (
                     <div style={{ fontSize: "11px", color: "#718096", marginTop: "2px" }}>
@@ -116,8 +136,8 @@ export function RFQBillTemplate({ data }: RFQBillTemplateProps) {
                   )}
                 </td>
                 <td style={{ padding: "12px 8px", verticalAlign: "top" }}>
-                  <div style={{ fontWeight: "600" }}>{item.materialGrade}</div>
-                  <div style={{ fontSize: "11px", color: "#4a5568" }}>{item.specification}</div>
+                  <div style={{ fontWeight: "600" }}>{safeRender(item.materialGrade)}</div>
+                  <div style={{ fontSize: "11px", color: "#4a5568" }}>{safeRender(item.specification)}</div>
                 </td>
                 <td style={{ padding: "12px 8px", textAlign: "right", verticalAlign: "top", fontWeight: "bold" }}>
                   {item.quantity}
@@ -199,14 +219,13 @@ export function RFQBillTemplate({ data }: RFQBillTemplateProps) {
         </h3>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "20px" }}>
           <div>
-            <p style={{ margin: "0 0 4px", fontSize: "11px", color: "#718096" }}>Standards & Certifications:</p>
             <p style={{ margin: 0, fontWeight: "600" }}>
-              {[...qualityRequirements.standards, ...qualityRequirements.certifications].join(", ") || "Standard commercial quality"}
+              {[...(qualityRequirements?.standards || []), ...(qualityRequirements?.certifications || [])].join(", ") || "Standard commercial quality"}
             </p>
           </div>
           <div>
             <p style={{ margin: "0 0 4px", fontSize: "11px", color: "#718096" }}>Preferred Brands:</p>
-            <p style={{ margin: 0, fontWeight: "600" }}>{additionalInfo.preferredBrands.join(", ") || "Any reputable make"}</p>
+            <p style={{ margin: 0, fontWeight: "600" }}>{(additionalInfo?.preferredBrands || []).join(", ") || "Any reputable make"}</p>
           </div>
         </div>
         {additionalInfo.specialInstructions && (
