@@ -425,7 +425,13 @@ function LineItemCard({
                       <Field label="Length (m)" value={dims.length || ""} onChange={(v) => updateDim("length", v)} placeholder="6" />
                     </>
                   )}
-                  {!isTMT && !isSheetPlate && !isPipeTube && (
+                  {isBar && (
+                    <>
+                      <Field label="Dia (mm)" value={dims.dia || ""} onChange={(v) => updateDim("dia", v)} placeholder="e.g., 25" />
+                      <Field label="Length (m)" value={dims.length || ""} onChange={(v) => updateDim("length", v)} placeholder="e.g., 6" />
+                    </>
+                  )}
+                  {!isTMT && !isSheetPlate && !isPipeTube && !isBar && (
                     <div className="col-span-full">
                       <Field
                         label="Description / Dimensions"
