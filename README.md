@@ -1,58 +1,73 @@
 # 🔩 MetalRFQ: AI-Powered Metal Procurement Generator
 
-A production-ready AI assistant for the Indian metals industry. **MetalRFQ** uses natural language processing to extract structured procurement data from chat conversations and generates industrial-grade Request for Quotation (RFQ) documents in real-time.
+**MetalRFQ** is a production-ready AI assistant designed for the Indian metals industry. It uses natural language processing to extract structured procurement data from chat conversations and generates industrial-grade Request for Quotation (RFQ) documents in real-time.
+
+![MetalRFQ Walkthrough Overview](./walkthrough-screenshot.png)
 
 ---
 
-## ✨ Features
+## 🏗️ Project Architecture (Layered Overview)
 
-- **💬 Conversational RFQ Building**: Describe your material needs (e.g., "10 MT of SS 304 sheets, 2mm thick") and watch the form populate automatically.
-- **🧠 Dual-Stream AI Architecture**:
-    - **Extraction Mode**: Background processing that identifies grades, categories, dimensions, and quantities from text.
-    - **Chat Mode**: A helpful assistant that guides you through the procurement steps and Indian industry standards.
-- **📄 Professional "Bill-Style" Export**:
-    - Generates a high-quality PDF with a professional invoice/bill layout.
-    - Structured tables for line items, delivery terms, and commercial conditions.
-    - Standardized formatting for easy sharing with suppliers.
-- **📊 Indian Metal Market Optimization**: Pre-configured with Indian metal categories (MS, SS, Aluminium, Brass), standard grades (IS 2062, ASTM A240), and local commercial terms (GST, Incoterms, Mill TC).
-- **🌓 Modern UI/UX**: Sleek split-panel interface with full Dark Mode support, real-time highlights for AI-updated fields, and mobile-responsive tabs.
-- **💰 Usage Tracking**: Real-time token usage and cost monitoring for transparent AI operations.
+The application is structured into five core layers, ensuring a separation of concerns and a seamless data flow.
 
----
+### 1. Foundation (Types & Utilities)
+*   **`src/types/rfq.ts`**: The master blueprint defining the structure of Buyer Info, Line Items (materials, dimensions, quantities), and the complete RFQ object.
+*   **`src/lib/rfq-defaults.ts`**: Provides the initial empty state and logic for generating professional RFQ numbers based on date and unique identifiers.
 
-## 🏗️ Architecture & Tech Stack
+### 2. AI Brain (Prompt Engineering & Bedrock)
+*   **`src/lib/rfq-prompts.ts`**: The "Intelligence Center" containing the system prompt and data minification logic ($Token Savings$).
+*   **`src/app/api/chat/route.ts`**: Backend handler using **Claude 3.5 Sonnet (via AWS Bedrock)** with streaming responses and real-time cost tracking.
 
-| Layer            | Technology |
-|------------------|-----------|
-| **Framework**    | [Next.js 15](https://nextjs.org/) (App Router) |
-| **Styling**      | [Tailwind CSS](https://tailwindcss.com/) |
-| **AI SDK**       | [Vercel AI SDK](https://sdk.vercel.ai/) |
-| **Model**        | [Amazon Bedrock](https://aws.amazon.com/bedrock/) (Anthropic Claude 3.5 Sonnet) |
-| **State Management** | [Zustand](https://zustand-demo.pmnd.rs/) with Persistence |
-| **Icons**        | [Lucide React](https://lucide.dev/) |
-| **PDF Generation**| `html2canvas-pro` + `jspdf` (Professional Bill Template) |
+### 3. State Management (The Orchestrator)
+*   **The Central Brain (`use-rfq-store.ts`)**: A custom React hook that manages the unified RFQ state, chat history, and highlights. Features a **Smart Merge** algorithm that allows AI to update specific fields without deleting existing data.
+*   **Persistence**: Automatically syncs the entire RFQ form to `localStorage`, protecting your data across browser refreshes.
+
+### 4. UI Components (Frontend)
+*   **`rfq-builder.tsx`**: The main orchestrator connecting the Chat UI with the Form panel.
+*   **Interactive Form**: A rich, multi-section form (`rfq-form-panel.tsx`) that features "Golden Glow" highlights when the AI extracts and updates data.
+*   **Multi-Language Support**: Support for English + 12 Indian regional languages, while always extracting data in standardized English.
+
+### 5. Export (PDF & CSV)
+*   **Professional PDF Template**: Uses a hidden "Bill-Style" template (`rfq-bill-template.tsx`) to generate high-quality industrial documents using `html2canvas` and `jsPDF`.
+*   **Data Portability**: Option to export structured RFQ data directly to CSV for ERP/Excel integration.
 
 ---
 
-## 🧠 The "Brain": Dual-Stream Processing
+## 🔄 Core Data Flow
 
-MetalRFQ uses a specialized parallel processing model to ensure a fluid user experience.
+The following diagram illustrates how MetalRFQ processes a simple user message into a complex procurement item:
 
 ```mermaid
-graph TD
-    UserMsg[User Message] --> ChatInput[Chat Interface]
-    ChatInput -->|Background| ExtractAPI[API: Extraction Mode]
-    ChatInput -->|Streaming| ConversationalAPI[API: Chat Mode]
-    
-    ExtractAPI -->|Structured JSON| Store[RFQ Zustand Store]
-    ConversationalAPI -->|Human Response| ChatUI[Chat Interface]
-    
-    Store -->|Real-time Sync| FormPanel[Right Side: RFQ Form]
-    Store -->|Hidden Template| BillCanvas[Bill-style PDF Template]
-    
-    Button[Export PDF] --> BillCanvas
-    BillCanvas --> PDF[Download: Professional RFQ.pdf]
+sequenceDiagram
+    participant User as 👤 User
+    participant Chat as 💬 Chat UI
+    participant API as 🤖 API Route
+    participant Claude as 🧠 Claude AI
+    participant Form as 📝 RFQ Form
+    participant Store as 💾 localStorage
+  
+    User->>Chat: "Mujhe 10 MT SS 304 sheet chahiye"
+    Chat->>Chat: addMessage("user", text)
+    Chat->>API: POST /api/chat {userMessage, rfqData, language}
+    API->>Claude: streamText(systemPrompt, userMessage)
+    Claude-->>API: Stream: "Got it! I've added..."
+    API-->>Chat: Stream bytes (Live Response)
+    Claude-->>API: Stream: "<rfq_json>{updatedData:{...}}</rfq_json>"
+    Chat->>Form: updateRFQData(parsed.updatedData)
+    Form->>Form: Smart merge → highlight fields ✨
+    Form->>Store: Persist state
+    Chat->>Chat: addMessage("assistant", text)
 ```
+
+---
+
+## ✨ Key Features
+
+- **💬 Conversational UI**: Talk to the RFQ builder in Hindi, English, or any major Indian language.
+- **🧠 Accurate Data Extraction**: Automatically identifies material grades (SS 304, MS E250), dimensions (Thickness, OD, Wall Thickness), and quantities (MT, KG).
+- **📝 Real-time Synchronized Form**: Manual edits and AI updates work in perfect harmony.
+- **📄 Industrial-Grade Export**: Professional bill-style layout designed for B2B procurement standards.
+- **💰 Token Optimization**: Custom minification logic reduces AI costs by 60%+ by stripping empty fields from API requests.
 
 ---
 
@@ -62,41 +77,30 @@ graph TD
 - **AWS Credentials**: Access to Amazon Bedrock with Claude 3.5 Sonnet enabled.
 - **Node.js**: v18.x or later.
 
-### 2. Installation
+### 2. Installation & Setup
 ```bash
 npm install
 # or
 pnpm install
 ```
 
-### 3. Environment Setup
-Create a `.env.local` file in the root directory:
+Create a `.env.local` file:
 ```bash
 AWS_ACCESS_KEY_ID=your_access_key
 AWS_SECRET_ACCESS_KEY=your_secret_key
 AWS_REGION=your_region (e.g. us-east-1)
 ```
 
-### 4. Run Development Server
+### 3. Run Development
 ```bash
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000).
 
 ---
 
-## 📄 Documentation
+## 📄 Documentation Reference
+- **Types**: See `src/types/rfq.ts`
+- **Prompts**: See `src/lib/rfq-prompts.ts`
+- **State**: See `src/hooks/use-rfq-store.ts`
 
-- **RFQ Data Structure**: Defined in `src/types/rfq.ts`.
-- **System Prompts**: Industrial logic found in `src/lib/rfq-prompts.ts`.
-- **Export Template**: Custom bill styling in `src/components/rfq-bill-template.tsx`.
-
-## 🚀 Roadmap
-- [ ] Multi-supplier matching based on material grade.
-- [ ] Integration with ERP systems (SAP/Oracle).
-- [ ] Historical price trend analysis for Indian metal markets.
-- [ ] WhatsApp integration for receiving RFQs.
-
----
-
-© 2026 MetalRFQ • Professional Procurement Excellence
+© 2026 MetalRFQ • Built for the Indian Metal Industry
